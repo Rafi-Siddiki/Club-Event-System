@@ -1,0 +1,151 @@
+/* General resets */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Background setup */
+.user-register-bg {
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(180deg, #5636A7 14.5%, #3E2C6B 58%, #1E1E1E 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    /* Ensures everything is centered horizontally and vertically */
+}
+
+/* Glassmorphism card wrapper (the glass background) */
+.glass-card-wrapper {
+    width: 586px;
+    height: 856px;
+    flex-shrink: 0;
+    border-radius: 56px;
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(17.5px);
+    z-index: 1;
+    /* Keeps it behind the content */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px;
+    box-sizing: border-box; /* Ensure padding is inside */
+}
+
+/* Glassmorphism card (text and form container) */
+.glass-card {
+    width: 100%;
+    max-width: 586px;
+    height: auto;
+    border-radius: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+/* Header styling */
+.user-register-form h2 {
+    color: white;
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.user-register-form h4 {
+    color: #ccc;
+    margin-bottom: 30px;
+}
+
+/* Form layout */
+.user-register-form form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+/* Input and select styling */
+.user-register-form input,
+.user-register-form select {
+    width: 100%;  /* Keeps inputs and select centered */
+    padding: 12px 16px;
+    border: none;
+    border-bottom: 1px solid white;
+    background: transparent;
+    color: white;
+    font-size: 16px;
+    outline: none;
+    text-align: center; /* Centers placeholder text */
+}
+
+/* Dropdown appearance */
+.user-register-form select {
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.3);
+    padding: 10px;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Dropdown options styling */
+.user-register-form select option {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+}
+
+/* Option hover effect */
+.user-register-form select option:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+/* Submit button */
+.user-register-form button[type="submit"] {
+    width: 60%;
+    padding: 14px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: none;
+    border-radius: 20px;
+    font-size: 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background 0.3s;
+}
+
+/* Submit button hover effect */
+.user-register-form button[type="submit"]:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Sign-in section */
+.glass-card h3 {
+    color: white;
+    margin: 25px 0 10px;
+    font-weight: normal;
+}
+
+.glass-card > button[type="submit"] {
+    width: 60%;
+    padding: 12px;
+    background-color: rgba(255, 255, 255, 0.25);
+    border: none;
+    border-radius: 20px;
+    font-size: 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.glass-card > button[type="submit"]:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+}
