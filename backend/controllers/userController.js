@@ -32,6 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
         password: hashedPassword,
         phone,
         club,
+        approved: false,
         role: role || 'user', // Default role to 'user' if not provided // role,
     });
 
@@ -43,6 +44,7 @@ const registerUser = asyncHandler(async (req, res) => {
             phone: user.phone,
             club: user.club,
             role: user.role,
+            approved: user.approved,
             token: generateToken(user._id), // Generate JWT token
         });
     } else {
@@ -81,6 +83,7 @@ const registerSponsor = asyncHandler(async (req, res) => {
         phone,
         role: role || 'sponsor', // Default role to 'sponsor' if not provided // role,
         company,
+        approved: false,
         cevent
     });
 
@@ -93,6 +96,7 @@ const registerSponsor = asyncHandler(async (req, res) => {
             role: user.role,
             company: user.company,
             cevent: user.cevent,
+            approved: user.approved,
             token: generateToken(user._id), // Generate JWT token
         });
     } else {
@@ -137,11 +141,13 @@ const getMe = asyncHandler(async (req, res) => {
         id: _id,
         name,
         email,
+        msg : 'login success',
         phone,
         club,
         role,
         company,
-        cevent
+        cevent,
+        approved: req.user.approved,
     });
 });
 

@@ -25,6 +25,12 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
+        enum: ['user', 'sponsor','panel','registrar'],
+        default: 'user'
+    },
+    approved: {
+        type: Boolean,
+        default: false
     },
     company: {
         type: String,
