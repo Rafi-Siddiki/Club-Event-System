@@ -1,18 +1,18 @@
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import Header from './components/Header';
-
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import UserRegister from './pages/UserRegister';
 import SponsorRegister from './pages/SponsorRegister';
 
-function App() {
+function AppLayout() {
+  const location = useLocation();
+  const hideHeaderOnPaths = ['/login', '/user/register', '/sponsor/register'];
+  const hideHeader = hideHeaderOnPaths.includes(location.pathname);
+
   return (
-    <>
-    <Router>
-    <div className='container'>
-      <Header />
+    <div className="container">
+      {!hideHeader && <Header />}
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/login" element={<Login />} />
@@ -20,8 +20,14 @@ function App() {
         <Route path="/sponsor/register" element={<SponsorRegister />} />
       </Routes>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppLayout />
     </Router>
-    </>
   );
 }
 
