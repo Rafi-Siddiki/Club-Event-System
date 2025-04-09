@@ -124,6 +124,8 @@ const loginUser = asyncHandler(async (req, res) => {
             role: user.role,
             company: user.company,
             cevent: user.cevent,
+            approved: user.approved,
+            msg : 'login success',
             token: generateToken(user._id), // Generate JWT token
         });
     } else {
@@ -141,7 +143,6 @@ const getMe = asyncHandler(async (req, res) => {
         id: _id,
         name,
         email,
-        msg : 'login success',
         phone,
         club,
         role,
