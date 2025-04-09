@@ -11,21 +11,33 @@ function UserRegister() {
   });
 
   const { username, email, password, phone, club } = formData;
+  
+  const onChange = (e) => {
+    setFormData((prevState) => ({
+      ...prevState,
+      [e.target.name]: e.target.value,
+    }));
+  }
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+  }
+
   return (
     <div className="user-register-bg">
-      {/* Wrapper for the glass card */}
       <div className="glass-card-wrapper">
-        {/* Glass effect applied here */}
         <div className="glass-card">
           <div className="user-register-form">
             <h2>User Registration</h2>
             <h4> Enter Your Details</h4>
-            <form>
+            <form onSubmit={onSubmit}>
               <input
                 type="text"
                 placeholder="Name"
                 id="username"
                 name="username"
+                value={username}
+                onChange={onChange}
                 required
               />
               <input
@@ -33,6 +45,8 @@ function UserRegister() {
                 placeholder="Email"
                 id="email"
                 name="email"
+                value={email}
+                onChange={onChange}
                 required
               />
               <input
@@ -40,6 +54,8 @@ function UserRegister() {
                 placeholder="Phone"
                 id="phone"
                 name="phone"
+                value={phone}
+                onChange={onChange}
                 required
               />
               <input
@@ -47,6 +63,8 @@ function UserRegister() {
                 placeholder="Password"
                 id="password"
                 name="password"
+                value={password}
+                onChange={onChange}
                 required
               />
               <select id="club" name="club">
@@ -59,7 +77,9 @@ function UserRegister() {
             </form>
           </div>
           <h3>Already have an account?</h3>
-          <button type="submit">Sign In</button>
+          <a href="/login">
+            <button type="button">Sign In</button>
+          </a>
         </div>
       </div>
     </div>

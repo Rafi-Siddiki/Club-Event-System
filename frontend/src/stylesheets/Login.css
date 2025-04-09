@@ -20,8 +20,8 @@
 
 /* Glassmorphism card wrapper (the glass background) */
 .glass-card-wrapper {
-    width: 586px;
-    height: 856px;
+    width: 530px;
+    height: 875px;
     flex-shrink: 0;
     border-radius: 56px;
     position: absolute;
