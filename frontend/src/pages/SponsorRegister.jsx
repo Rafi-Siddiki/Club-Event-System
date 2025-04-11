@@ -25,16 +25,19 @@ function SponsorRegister() {
   const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if (isError) { 
+    document.title = 'User Registration';
+
+    if (isError) {
       toast.error(message);
     }
 
-    if (isSuccess || user) {
-      navigate('/');
+    if (isSuccess) {
+      toast.success("Registration successful! You can log in after approval.");
+      navigate('/login');
     }
 
     dispatch(reset());
-  }, [user, isError, isSuccess, message, navigate, dispatch]);
+  }, [ user,isError, isSuccess, message, navigate, dispatch]);
   
   const onChange = (e) => {
     setFormData((prevState) => ({

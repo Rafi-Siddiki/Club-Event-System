@@ -1,41 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import '../stylesheets/Login.css';
-import { useState, useEffect } from 'react';
-import { useSelector, useDispatch} from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { login, reset } from '../features/auth/authSlice';
 import Spinner from '../components/Spinner';
+import { toast } from 'react-toastify';
 
 function Login() {
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
-    phone: '',
-    club: '',
   });
 
-  const { email, password} = formData;
+  const { email, password } = formData;
 
-  const navigate = useNavigate();
   const dispatch = useDispatch();
-  
-  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+  const navigate = useNavigate();
+
+  const { user, isLoading, isError, isSuccess, message } = useSelector(
+    (state) => state.auth
+  );
 
   useEffect(() => {
     if (isError) {
       toast.error(message);
     }
-  
-    if (isSuccess || user) {
-      // Redirect based on the user role
+
+    if (isSuccess) {
       if (user) {
         if (!user.approved) {
-          alert("Your account is pending approval.");
-          return;
+          toast.info('Your account is pending approval.');
+          return; // Don't allow login
         }
-  
+
         switch (user.role) {
           case 'user':
             navigate('/user-dashboard');
@@ -54,16 +51,16 @@ function Login() {
         }
       }
     }
-  
+
     dispatch(reset());
   }, [user, isError, isSuccess, message, navigate, dispatch]);
-  
+
   const onChange = (e) => {
     setFormData((prevState) => ({
       ...prevState,
       [e.target.name]: e.target.value,
     }));
-  }
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -71,9 +68,10 @@ function Login() {
     const userData = {
       email,
       password,
-    }
-    dispatch(login(userData))
-  }
+    };
+
+    dispatch(login(userData)); // Log the user in if approved
+  };
 
   if (isLoading) {
     return <Spinner />;
@@ -85,9 +83,8 @@ function Login() {
         <div className="glass-card">
           <div className="user-register-form">
             <h2>Event Flow</h2>
-            <h4> Enter Your Information to Sign In</h4>
+            <h4>Enter Your Information to Sign In</h4>
             <form onSubmit={onSubmit}>
-
               <input
                 type="email"
                 placeholder="Email"
@@ -97,7 +94,6 @@ function Login() {
                 onChange={onChange}
                 required
               />
-
               <input
                 type="password"
                 placeholder="Password"
@@ -107,7 +103,6 @@ function Login() {
                 onChange={onChange}
                 required
               />
-
               <button type="submit">Sign In</button>
             </form>
           </div>
