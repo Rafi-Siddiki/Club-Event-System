@@ -26,7 +26,7 @@ export const register = createAsyncThunk('auth/register', async(user, thunkAPI) 
 export const registerSponsor = createAsyncThunk('auth/registerSponsor', async(user, thunkAPI) => {
     try {
         return await authService.registerSponsor(user)
-} catch (error) {
+    } catch (error) {
         const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString()
         return thunkAPI.rejectWithValue(message)
     }
@@ -76,6 +76,20 @@ export const authSlice = createSlice({
                 state.message = action.payload
                 state.user = null
             })
+            .addCase(registerSponsor.pending, (state) => {
+                state.isLoading = true
+            })
+            .addCase(registerSponsor.fulfilled, (state, action) => {
+                state.isLoading = false
+                state.isSuccess = true
+                state.user = action.payload
+            })
+            .addCase(registerSponsor.rejected, (state, action) => {
+                state.isLoading = false
+                state.isError = true
+                state.message = action.payload
+                state.user = null
+            })
             .addCase(login.pending, (state) => {
                 state.isLoading = true
             })
@@ -93,20 +107,6 @@ export const authSlice = createSlice({
             .addCase(logout.fulfilled, (state) => {
                 state.user = null
             })
-            .addCase(registerSponsor.pending, (state) => {
-                state.isLoading = true
-              })
-              .addCase(registerSponsor.fulfilled, (state, action) => {
-                state.isLoading = false
-                state.isSuccess = true
-                state.user = action.payload
-              })
-              .addCase(registerSponsor.rejected, (state, action) => {
-                state.isLoading = false
-                state.isError = true
-                state.message = action.payload
-                state.user = null
-              })
     }
 })
 

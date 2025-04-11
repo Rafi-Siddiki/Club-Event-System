@@ -8,7 +8,7 @@ import { login, reset } from '../features/auth/authSlice';
 import Spinner from '../components/Spinner';
 
 function Login() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = React.useState({
     username: '',
     email: '',
     password: '',
@@ -23,40 +23,23 @@ function Login() {
   
   const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
 
-  useEffect(() => {
-    if (isError) {
-      toast.error(message);
-    }
+    useEffect(() => {
+      if (isError) {
+        toast.error(message);
+      }
   
-    if (isSuccess || user) {
-      // Redirect based on the user role
-      if (user) {
-        if (!user.approved) {
-          alert("Your account is pending approval.");
-          return;
-        }
-  
-        switch (user.role) {
-          case 'user':
-            navigate('/user-dashboard');
-            break;
-          case 'sponsor':
-            navigate('/sponsor-dashboard');
-            break;
-          case 'panel':
-            navigate('/panel-dashboard');
-            break;
-          case 'registrar':
-            navigate('/registrar-dashboard');
-            break;
-          default:
-            navigate('/');
+      if (isSuccess || user) {
+        // Check user role and redirect accordingly
+        if (user.role === 'sponsor') {
+          navigate('/sponsor/dashboard');
+        } else {
+          navigate('/');
         }
       }
-    }
   
-    dispatch(reset());
-  }, [user, isError, isSuccess, message, navigate, dispatch]);
+      dispatch(reset());
+  
+    }, [user, isError, isSuccess, message, navigate, dispatch]);
   
   const onChange = (e) => {
     setFormData((prevState) => ({

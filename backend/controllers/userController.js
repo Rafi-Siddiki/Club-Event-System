@@ -159,27 +159,9 @@ const generateToken = (id) => {
     });
 };
 
-// @desc Approve a user
-// @route PUT /api/users/approve/:id
-// @access Private (panel/registrar only)
-const approveUser = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
-    }
-
-    user.approved = true;
-    await user.save();
-
-    res.status(200).json({ message: 'User approved successfully' });
-});
-
 module.exports = {
     registerUser,
     registerSponsor,
     loginUser,
-    getMe,
-    approveUser
+    getMe
 };

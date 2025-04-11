@@ -14,7 +14,7 @@ const register = async (userData) => {
   return response.data
 }
 
-// sponsor Register user
+// Register sponsor
 const registerSponsor = async (userData) => {
   const response = await axios.post(API_URL + 'regsponsor', userData)
 
@@ -43,9 +43,9 @@ const logout = () => {
 
 const authService = {
   register,
+  registerSponsor,
   logout,
   login,
-  registerSponsor,
 }
 
 export default authService

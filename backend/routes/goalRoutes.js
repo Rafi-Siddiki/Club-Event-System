@@ -1,23 +1,17 @@
-// backend/routes/goalRoutes.js
-
 const express = require('express');
 const router = express.Router();
-const {
-    getGoal,
-    setGoal,
-    putGoal,
-    deleteGoal
-} = require('../controllers/goalController');
+const { getGoal, setGoal, putGoal, deleteGoal} = require('../controllers/goalController');
 
-const { protect } = require('../middleware/authMiddleware');
-const { requireApproval } = require('../middleware/customMiddleware');
+const { protect } = require('../middleware/authMiddleware')
+
 
 router.route('/')
-    .get(protect, requireApproval, getGoal)
-    .post(protect, requireApproval, setGoal);
+    .get(protect, getGoal)
+    .post(protect, setGoal)
 
 router.route('/:id')
-    .put(protect, requireApproval, putGoal)
-    .delete(protect, requireApproval, deleteGoal);
+    .put(protect, putGoal)
+    .delete(protect, deleteGoal)
+
 
 module.exports = router;
