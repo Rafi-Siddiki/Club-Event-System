@@ -1,16 +1,40 @@
 import React from 'react';
 import '../stylesheets/UserRegister.css';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch} from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { register, reset } from '../features/auth/authSlice';
+import Spinner from '../components/Spinner';
 
 function UserRegister() {
   const [formData, setFormData] = React.useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
     phone: '',
     club: '',
   });
 
-  const { username, email, password, phone, club } = formData;
+  const { name, email, password, phone, club } = formData;
+
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+
+  useEffect(() => {
+    if (isError) {
+      toast.error(message);
+    }
+
+    if (isSuccess || user) {
+      navigate('/');
+    }
+
+    dispatch(reset());
+
+  }, [user, isError, isSuccess, message, navigate, dispatch]);
   
   const onChange = (e) => {
     setFormData((prevState) => ({
@@ -21,7 +45,20 @@ function UserRegister() {
 
   const onSubmit = (e) => {
     e.preventDefault();
+
+    const userData = {
+      name,
+      email,
+      password,
+      phone,
+      club,
+    }
+    dispatch(register(userData))
   }
+  if (isLoading) {
+    return <Spinner />;
+  }
+
 
   return (
     <div className="user-register-bg">
@@ -34,9 +71,9 @@ function UserRegister() {
               <input
                 type="text"
                 placeholder="Name"
-                id="username"
-                name="username"
-                value={username}
+                id="name"
+                name="name"
+                value={name}
                 onChange={onChange}
                 required
               />
@@ -67,7 +104,7 @@ function UserRegister() {
                 onChange={onChange}
                 required
               />
-              <select id="club" name="club">
+              <select id="club" name="club" value={club} onChange={onChange}>
                 <option value="">Select a club</option>
                 <option value="club1">Club 1</option>
                 <option value="club2">Club 2</option>

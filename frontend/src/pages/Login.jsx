@@ -1,8 +1,14 @@
 import React from 'react';
 import '../stylesheets/Login.css';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch} from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { login, reset } from '../features/auth/authSlice';
+import Spinner from '../components/Spinner';
 
 function Login() {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
@@ -11,6 +17,46 @@ function Login() {
   });
 
   const { email, password} = formData;
+
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+
+  useEffect(() => {
+    if (isError) {
+      toast.error(message);
+    }
+  
+    if (isSuccess || user) {
+      // Redirect based on the user role
+      if (user) {
+        if (!user.approved) {
+          alert("Your account is pending approval.");
+          return;
+        }
+  
+        switch (user.role) {
+          case 'user':
+            navigate('/user-dashboard');
+            break;
+          case 'sponsor':
+            navigate('/sponsor-dashboard');
+            break;
+          case 'panel':
+            navigate('/panel-dashboard');
+            break;
+          case 'registrar':
+            navigate('/registrar-dashboard');
+            break;
+          default:
+            navigate('/');
+        }
+      }
+    }
+  
+    dispatch(reset());
+  }, [user, isError, isSuccess, message, navigate, dispatch]);
   
   const onChange = (e) => {
     setFormData((prevState) => ({
@@ -21,6 +67,16 @@ function Login() {
 
   const onSubmit = (e) => {
     e.preventDefault();
+
+    const userData = {
+      email,
+      password,
+    }
+    dispatch(login(userData))
+  }
+
+  if (isLoading) {
+    return <Spinner />;
   }
 
   return (

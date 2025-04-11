@@ -1,9 +1,15 @@
 import React from 'react';
 import '../stylesheets/UserRegister.css';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch} from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { registerSponsor, reset } from '../features/auth/authSlice';
+import Spinner from '../components/Spinner';
 
 function SponsorRegister() {
-  const [formData, setFormData] = React.useState({
-    username: '',
+  const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
     phone: '',
@@ -11,7 +17,24 @@ function SponsorRegister() {
     company: '',
   });
 
-  const { username, email, password, phone, event, company } = formData;
+  const { name, email, password, phone, event, company } = formData;
+
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+
+  useEffect(() => {
+    if (isError) { 
+      toast.error(message);
+    }
+
+    if (isSuccess || user) {
+      navigate('/');
+    }
+
+    dispatch(reset());
+  }, [user, isError, isSuccess, message, navigate, dispatch]);
   
   const onChange = (e) => {
     setFormData((prevState) => ({
@@ -22,8 +45,20 @@ function SponsorRegister() {
 
   const onSubmit = (e) => {
     e.preventDefault();
-  }
 
+    const userData = {
+      name,
+      email,
+      password,
+      phone,
+      event,
+      company,
+    }
+    dispatch(registerSponsor(userData))
+  }
+  if (isLoading) {
+    return <Spinner />;
+  }
   return (
     <div className="user-register-bg">
       <div className="glass-card-wrapper">
@@ -35,9 +70,9 @@ function SponsorRegister() {
               <input
                 type="text"
                 placeholder="Name"
-                id="username"
-                name="username"
-                value={username}
+                id="name"
+                name="name"
+                value={name}
                 onChange={onChange}
                 required
               />
@@ -77,7 +112,7 @@ function SponsorRegister() {
                 onChange={onChange}
                 required
               />
-              <select id="club" name="club">
+              <select id="event" name="event" value={event} onChange={onChange}>
                 <option value="">Select Event </option>
                 <option value="event1">Event 1</option>
                 <option value="event2">Event 2</option>

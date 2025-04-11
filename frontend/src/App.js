@@ -1,9 +1,19 @@
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { Navigate } from 'react-router-dom';
+
 import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
+
 import Login from './pages/Login';
 import UserRegister from './pages/UserRegister';
 import SponsorRegister from './pages/SponsorRegister';
+import UserDashboard from './pages/UserDashboard';
+import SponsorDashboard from './pages/SponsorDashboard';
+import PanelDashboard from './pages/PanelDashboard';
+import RegistrarDashboard from './pages/RegistrarDashboard';
+import Unauthorized from './pages/Unauthorized';
 
 function AppLayout() {
   const location = useLocation();
@@ -14,10 +24,46 @@ function AppLayout() {
     <div className="container">
       {!hideHeader && <Header />}
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        {/* Public Routes */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/user/register" element={<UserRegister />} />
         <Route path="/sponsor/register" element={<SponsorRegister />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/user-dashboard"
+          element={
+            <RoleProtectedRoute allowedRoles={['user']}>
+              <UserDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/sponsor-dashboard"
+          element={
+            <RoleProtectedRoute allowedRoles={['sponsor']}>
+              <SponsorDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/panel-dashboard"
+          element={
+            <RoleProtectedRoute allowedRoles={['panel']}>
+              <PanelDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/registrar-dashboard"
+          element={
+            <RoleProtectedRoute allowedRoles={['registrar']}>
+              <RegistrarDashboard />
+            </RoleProtectedRoute>
+          }
+        />
       </Routes>
     </div>
   );
@@ -25,9 +71,12 @@ function AppLayout() {
 
 function App() {
   return (
-    <Router>
-      <AppLayout />
-    </Router>
+    <>
+      <Router>
+        <AppLayout />
+      </Router>
+      <ToastContainer />
+    </>
   );
 }
 
