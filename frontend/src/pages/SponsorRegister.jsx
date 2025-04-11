@@ -8,7 +8,7 @@ import { registerSponsor, reset } from '../features/auth/authSlice';
 import Spinner from '../components/Spinner';
 
 function SponsorRegister() {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
