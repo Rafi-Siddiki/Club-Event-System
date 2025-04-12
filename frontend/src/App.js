@@ -14,6 +14,7 @@ import SponsorDashboard from './pages/SponsorDashboard';
 import PanelDashboard from './pages/PanelDashboard';
 import RegistrarDashboard from './pages/RegistrarDashboard';
 import Unauthorized from './pages/Unauthorized';
+import UserProfile from './pages/UserProfile';
 
 function AppLayout() {
   const location = useLocation();
@@ -61,6 +62,14 @@ function AppLayout() {
           element={
             <RoleProtectedRoute allowedRoles={['registrar']}>
               <RegistrarDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RoleProtectedRoute allowedRoles={['user', 'sponsor', 'panel', 'registrar']}>
+              <UserProfile />
             </RoleProtectedRoute>
           }
         />

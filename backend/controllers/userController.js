@@ -149,6 +149,7 @@ const getMe = asyncHandler(async (req, res) => {
         company,
         cevent,
         approved: req.user.approved,
+                                     
     });
 });
 
