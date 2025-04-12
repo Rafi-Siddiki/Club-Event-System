@@ -1,7 +1,7 @@
 import React from 'react';
 import '../stylesheets/UserRegister.css';
 import { useState, useEffect } from 'react';
-import { useSelector, useDispatch} from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { registerSponsor, reset } from '../features/auth/authSlice';
@@ -13,19 +13,39 @@ function SponsorRegister() {
     email: '',
     password: '',
     phone: '',
-    event: '',
+    cevent: '', // Changed from 'event' to 'cevent' to match backend model
     company: '',
   });
 
-  const { name, email, password, phone, event, company } = formData;
+  const { name, email, password, phone, cevent, company } = formData;
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+  const { user, isLoading, isError, isSuccess, message, type } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    document.title = 'User Registration';
+    document.title = 'Sponsor Registration';
+
+    // Add check for existing user
+    if (user) {
+      switch (user.role) {
+        case 'user':
+          navigate('/user-dashboard');
+          break;
+        case 'sponsor':
+          navigate('/sponsor-dashboard');
+          break;
+        case 'panel':
+          navigate('/panel-dashboard');
+          break;
+        case 'registrar':
+          navigate('/registrar-dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    }
 
     if (isError) {
       toast.error(message);
@@ -37,14 +57,14 @@ function SponsorRegister() {
     }
 
     dispatch(reset());
-  }, [ user,isError, isSuccess, message, navigate, dispatch]);
-  
+  }, [user, isError, isSuccess, message, type, navigate, dispatch]);
+
   const onChange = (e) => {
     setFormData((prevState) => ({
       ...prevState,
       [e.target.name]: e.target.value,
     }));
-  }
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -54,14 +74,16 @@ function SponsorRegister() {
       email,
       password,
       phone,
-      event,
+      cevent, // Changed from 'event' to 'cevent'
       company,
-    }
-    dispatch(registerSponsor(userData))
-  }
+    };
+    dispatch(registerSponsor(userData));
+  };
+
   if (isLoading) {
     return <Spinner />;
   }
+
   return (
     <div className="user-register-bg">
       <div className="glass-card-wrapper">
@@ -81,7 +103,7 @@ function SponsorRegister() {
               />
               <input
                 type="text"
-                placeholder="Comany"
+                placeholder="Company"
                 id="company"
                 name="company"
                 value={company}
@@ -115,11 +137,11 @@ function SponsorRegister() {
                 onChange={onChange}
                 required
               />
-              <select id="event" name="event" value={event} onChange={onChange}>
-                <option value="">Select Event </option>
+              <select id="cevent" name="cevent" value={cevent} onChange={onChange}>
+                <option value="">Select Event</option>
                 <option value="event1">Event 1</option>
                 <option value="event2">Event 2</option>
-                <option value="event2">Event 3</option>
+                <option value="event3">Event 3</option>
               </select>
               <button type="submit">Apply</button>
             </form>

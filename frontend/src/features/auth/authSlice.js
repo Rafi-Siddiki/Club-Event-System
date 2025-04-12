@@ -10,6 +10,7 @@ const initialState = {
   isSuccess: false,
   isLoading: false,
   message: '',
+  type: '', // Add a type property to track the action type
 }
 
 // Register user
@@ -65,6 +66,7 @@ export const authSlice = createSlice({
       state.isSuccess = false
       state.isError = false
       state.message = ''
+      state.type = '' // Reset the type
     },
     logout: (state) => {
       state.user = null
@@ -78,6 +80,7 @@ export const authSlice = createSlice({
       .addCase(register.fulfilled, (state) => {
         state.isLoading = false
         state.isSuccess = true
+        state.type = 'register' // Set type to 'register'
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false
@@ -91,6 +94,7 @@ export const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false
         state.isSuccess = true
+        state.type = 'login' // Set type to 'login'
         state.user = action.payload
       })
       .addCase(login.rejected, (state, action) => {

@@ -17,43 +17,43 @@ function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { user, isLoading, isError, isSuccess, message } = useSelector(
+  const { user, isLoading, isError, isSuccess, message, type } = useSelector(
     (state) => state.auth
   );
 
   useEffect(() => {
+    if (user) {
+      // Redirect logged-in users to their respective dashboard
+      switch (user.role) {
+        case 'user':
+          navigate('/user-dashboard');
+          break;
+        case 'sponsor':
+          navigate('/sponsor-dashboard');
+          break;
+        case 'panel':
+          navigate('/panel-dashboard');
+          break;
+        case 'registrar':
+          navigate('/registrar-dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    }
+
     if (isError) {
       toast.error(message);
     }
 
-    if (isSuccess) {
-      if (user) {
-        if (!user.approved) {
-          toast.info('Your account is pending approval.');
-          return; // Don't allow login
-        }
-
-        switch (user.role) {
-          case 'user':
-            navigate('/user-dashboard');
-            break;
-          case 'sponsor':
-            navigate('/sponsor-dashboard');
-            break;
-          case 'panel':
-            navigate('/panel-dashboard');
-            break;
-          case 'registrar':
-            navigate('/registrar-dashboard');
-            break;
-          default:
-            navigate('/');
-        }
-      }
+    // Only show the registration success message if the type is 'register'
+    if (isSuccess && type === 'register') {
+      toast.success("Registration successful! You can log in after approval.");
+      navigate('/login');
     }
 
     dispatch(reset());
-  }, [user, isError, isSuccess, message, navigate, dispatch]);
+  }, [user, isError, isSuccess, message, type, navigate, dispatch]);
 
   const onChange = (e) => {
     setFormData((prevState) => ({
