@@ -1,11 +1,21 @@
 import React from 'react'
-
+import '../stylesheets/ViewMyProfile.css';
+import { Link } from 'react-router-dom'
 function SponsorDashboard() {
   React.useEffect(() => {
     document.title = 'Sponsor Dashboard';
   }, []);
   return (
-    <div>SponsorDashboard</div>
+    <div>
+      <h1>SponsorDashboard</h1>
+      {/* ADD THIS SECTION */}
+      <div className="dashboard-actions">
+        <Link to="/profile" className="profile-link">
+          <button type="button">View My Profile</button>
+        </Link>
+      </div>
+      {/* END ADDED SECTION */}
+    </div>
   )
 }
 

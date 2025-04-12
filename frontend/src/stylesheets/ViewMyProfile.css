@@ -1,0 +1,18 @@
+
+.dashboard-actions {
+    margin-top: 20px;
+  }
+  
+  .profile-link button {
+    padding: 10px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .profile-link button:hover {
+    background-color: #45a049;
+  }
