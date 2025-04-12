@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../stylesheets/SponsorDashboard.css';
+import '../stylesheets/ViewMyProfile.css';
 
 function SponsorDashboard() {
   const navigate = useNavigate();
@@ -11,6 +12,11 @@ function SponsorDashboard() {
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Set page title
+    document.title = 'Sponsor Dashboard';
+  }, []);
 
   useEffect(() => {
     // Protect this route - only sponsors can access
@@ -31,7 +37,6 @@ function SponsorDashboard() {
   const fetchOpportunities = async () => {
     setLoading(true);
     try {
-      // Fetch data from the opportunities API endpoint
       const response = await axios.get('/api/opportunities', {
         headers: {
           Authorization: `Bearer ${user.token}`,
@@ -46,7 +51,7 @@ function SponsorDashboard() {
   };
 
   const renderTabContent = () => {
-    switch(activeTab) {
+    switch (activeTab) {
       case 'fundingProposals':
         return (
           <div className="funding-proposals">
@@ -96,21 +101,27 @@ function SponsorDashboard() {
         <h1>Welcome {user?.name}</h1>
         <p>Sponsor Dashboard</p>
       </div>
+
+      {/* Profile Button Section */}
+      <div className="dashboard-actions">
+        <Link to="/profile" className="profile-link">
+          <button type="button">View My Profile</button>
+        </Link>
+      </div>
+
       <div className="dashboard-container">
         <div className="sidebar">
           <ul>
-            <li 
+            <li
               className={activeTab === 'fundingProposals' ? 'active' : ''}
               onClick={() => setActiveTab('fundingProposals')}
             >
               <i className="fas fa-money-check"></i> Funding Opportunities
             </li>
-            {/* More menu items will be added here later */}
+            {/* More menu items can be added here */}
           </ul>
         </div>
-        <div className="main-content">
-          {renderTabContent()}
-        </div>
+        <div className="main-content">{renderTabContent()}</div>
       </div>
     </div>
   );
