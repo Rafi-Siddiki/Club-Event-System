@@ -20,10 +20,30 @@ function UserRegister() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { isLoading, isError, isSuccess, message } = useSelector((state) => state.auth);
+  const { user, isLoading, isError, isSuccess, message, type } = useSelector((state) => state.auth);
 
   useEffect(() => {
     document.title = 'User Registration';
+
+    // Check if user is already logged in
+    if (user) {
+      switch (user.role) {
+        case 'user':
+          navigate('/user-dashboard');
+          break;
+        case 'sponsor':
+          navigate('/sponsor-dashboard');
+          break;
+        case 'panel':
+          navigate('/panel-dashboard');
+          break;
+        case 'registrar':
+          navigate('/registrar-dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    }
 
     if (isError) {
       toast.error(message);
@@ -35,7 +55,7 @@ function UserRegister() {
     }
 
     dispatch(reset());
-  }, [isError, isSuccess, message, navigate, dispatch]);
+  }, [user, isError, isSuccess, message, type, navigate, dispatch]);
 
   const onChange = (e) => {
     setFormData((prevState) => ({

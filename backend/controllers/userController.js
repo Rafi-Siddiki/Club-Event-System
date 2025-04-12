@@ -115,6 +115,12 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await bcrypt.compare(password, user.password))) {
+        // Check if the user is approved
+        if (!user.approved) {
+            res.status(403); // Forbidden
+            throw new Error('Your account is pending approval. Please wait for an administrator to approve your account.');
+        }
+
         res.json({
             _id: user.id,
             name: user.name,
@@ -125,7 +131,7 @@ const loginUser = asyncHandler(async (req, res) => {
             company: user.company,
             cevent: user.cevent,
             approved: user.approved,
-            msg : 'login success',
+            msg: 'login success',
             token: generateToken(user._id), // Generate JWT token
         });
     } else {
