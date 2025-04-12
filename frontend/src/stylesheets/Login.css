@@ -6,6 +6,11 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+html, body {
+    width: 100%;
+    overflow-x: hidden;
+}
+
 /* Background setup */
 .user-register-bg {
     width: 100vw;
@@ -14,44 +19,37 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    position: relative;
-    /* Ensures everything is centered horizontally and vertically */
+    padding: 20px;
 }
 
-/* Glassmorphism card wrapper (the glass background) */
+/* Glassmorphism card wrapper */
 .glass-card-wrapper {
-    width: 530px;
-    height: 875px;
+    width: 90%;
+    max-width: 530px;
+    height: auto;
     flex-shrink: 0;
     border-radius: 56px;
-    position: absolute;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(17.5px);
-    z-index: 1;
-    /* Keeps it behind the content */
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 30px;
-    box-sizing: border-box; /* Ensure padding is inside */
+    box-sizing: border-box;
 }
 
-/* Glassmorphism card (text and form container) */
+/* Glass card container */
 .glass-card {
     width: 100%;
-    max-width: 586px;
-    height: auto;
     border-radius: 56px;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 30px;
-    position: relative;
-    z-index: 2;
     text-align: center;
 }
 
-/* Header styling */
+/* Headings */
 .user-register-form h2 {
     color: white;
     font-size: 28px;
@@ -72,10 +70,10 @@
     align-items: center;
 }
 
-/* Input and select styling */
+/* Input and select */
 .user-register-form input,
 .user-register-form select {
-    width: 100%;  /* Keeps inputs and select centered */
+    width: 100%;
     padding: 12px 16px;
     border: none;
     border-bottom: 1px solid white;
@@ -83,10 +81,9 @@
     color: white;
     font-size: 16px;
     outline: none;
-    text-align: center; /* Centers placeholder text */
+    text-align: center;
 }
 
-/* Dropdown appearance */
 .user-register-form select {
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.3);
@@ -95,13 +92,11 @@
     border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-/* Dropdown options styling */
 .user-register-form select option {
     background: rgba(0, 0, 0, 0.7);
     color: white;
 }
 
-/* Option hover effect */
 .user-register-form select option:hover {
     background: rgba(255, 255, 255, 0.4);
 }
@@ -121,29 +116,26 @@
     transition: background 0.3s;
 }
 
-/* Submit button hover effect */
 .user-register-form button[type="submit"]:hover {
     background-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Sign-in section */
+/* Other buttons and links */
 .glass-card h3 {
     color: white;
     margin: 25px 0 10px;
     font-weight: normal;
 }
 
-/* Styling for the anchor tag that wraps the button */
 .glass-card > a {
-    text-decoration: none; /* Remove the underline from the anchor link */
-    display: flex;         /* Use flex to center the button */
-    justify-content: center; /* Center the button horizontally */
-    width: 100%;           /* Ensure the anchor tag takes up full width */
+    text-decoration: none;
+    display: flex;
+    justify-content: center;
+    width: 100%;
 }
 
-/* Button inside the anchor tag */
 .glass-card > a button[type="button"] {
-    width: 60%;             /* Set the width to be consistent with the other buttons */
+    width: 60%;
     padding: 12px;
     background-color: rgba(255, 255, 255, 0.25);
     border: none;
@@ -156,7 +148,41 @@
     margin-top: 20px;
 }
 
-/* Button hover effect */
 .glass-card > a button[type="button"]:hover {
     background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- Responsive styles for mobile screens --- */
+@media screen and (max-width: 768px) {
+    .glass-card-wrapper {
+        padding: 20px;
+        border-radius: 30px;
+    }
+
+    .glass-card {
+        padding: 20px;
+    }
+
+    .user-register-form h2 {
+        font-size: 24px;
+    }
+
+    .user-register-form h4 {
+        font-size: 16px;
+    }
+
+    .user-register-form input,
+    .user-register-form select {
+        font-size: 14px;
+    }
+
+    .user-register-form button[type="submit"],
+    .glass-card > a button[type="button"] {
+        width: 100%;
+        font-size: 16px;
+    }
+
+    .glass-card h3 {
+        font-size: 16px;
+    }
 }

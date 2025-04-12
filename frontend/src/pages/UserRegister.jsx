@@ -1,14 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import '../stylesheets/UserRegister.css';
-import { useState, useEffect } from 'react';
-import { useSelector, useDispatch} from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { register, reset } from '../features/auth/authSlice';
 import Spinner from '../components/Spinner';
 
 function UserRegister() {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
@@ -21,27 +20,29 @@ function UserRegister() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const {user, isLoading, isError, isSuccess, message} = useSelector((state) => state.auth)
+  const { isLoading, isError, isSuccess, message } = useSelector((state) => state.auth);
 
   useEffect(() => {
+    document.title = 'User Registration';
+
     if (isError) {
       toast.error(message);
     }
 
-    if (isSuccess || user) {
-      navigate('/');
+    if (isSuccess) {
+      toast.success("Registration successful! You can log in after approval.");
+      navigate('/login');
     }
 
     dispatch(reset());
+  }, [isError, isSuccess, message, navigate, dispatch]);
 
-  }, [user, isError, isSuccess, message, navigate, dispatch]);
-  
   const onChange = (e) => {
     setFormData((prevState) => ({
       ...prevState,
       [e.target.name]: e.target.value,
     }));
-  }
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -52,13 +53,13 @@ function UserRegister() {
       password,
       phone,
       club,
-    }
-    dispatch(register(userData))
-  }
+    };
+    dispatch(register(userData));
+  };
+
   if (isLoading) {
     return <Spinner />;
   }
-
 
   return (
     <div className="user-register-bg">
@@ -66,7 +67,7 @@ function UserRegister() {
         <div className="glass-card">
           <div className="user-register-form">
             <h2>User Registration</h2>
-            <h4> Enter Your Details</h4>
+            <h4>Enter Your Details</h4>
             <form onSubmit={onSubmit}>
               <input
                 type="text"
@@ -104,7 +105,7 @@ function UserRegister() {
                 onChange={onChange}
                 required
               />
-              <select id="club" name="club" value={club} onChange={onChange}>
+              <select id="club" name="club" value={club} onChange={onChange} required>
                 <option value="">Select a club</option>
                 <option value="club1">Club 1</option>
                 <option value="club2">Club 2</option>

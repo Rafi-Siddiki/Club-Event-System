@@ -16,9 +16,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use('/api/goal', require('./routes/goalRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/proposals', require('./routes/proposalRoutes'));
 app.use('/api/opportunities', require('./routes/opportunityRoutes'));
-
 
 app.use(errorHandler);
 
