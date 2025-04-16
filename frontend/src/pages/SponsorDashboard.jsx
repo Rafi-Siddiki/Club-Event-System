@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import '../stylesheets/SponsorDashboard.css';
 import '../stylesheets/ViewMyProfile.css';
+import { toast } from 'react-toastify';
 
 function SponsorDashboard() {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ function SponsorDashboard() {
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState(null);
 
   useEffect(() => {
     // Set page title
@@ -50,6 +53,47 @@ function SponsorDashboard() {
     }
   };
 
+  const handleViewDetails = (opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedOpportunity(null);
+  };
+
+  // Handle expressing interest in a proposal
+  const handleExpressInterest = async (opportunityId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.post(`/api/opportunities/${opportunityId}/interest`, {}, config);
+      toast.success('Interest expressed successfully. Your request will be reviewed by a registrar.');
+      
+      // Refresh the opportunities list
+      fetchOpportunities();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to express interest';
+      toast.error(errorMessage);
+    }
+  };
+
+  // Check if user has already expressed interest
+  const hasExpressedInterest = (opportunity) => {
+    // First check if user exists and has _id property
+    // Then check if interestedSponsors exists and is an array before calling includes
+    return user && 
+           user._id && 
+           opportunity.interestedSponsors && 
+           Array.isArray(opportunity.interestedSponsors) && 
+           opportunity.interestedSponsors.includes(user._id);
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'fundingProposals':
@@ -79,14 +123,26 @@ function SponsorDashboard() {
                       <span>Location: {opportunity.location}</span>
                     </div>
                     <div className="proposal-actions">
-                      <button className="btn-view">View Details</button>
-                      <button className="btn-approve">Express Interest</button>
+                      <button className="btn-view" onClick={() => handleViewDetails(opportunity)}>View Details</button>
+                      {hasExpressedInterest(opportunity) ? (
+                        <button className="btn-disabled" disabled>Interest Expressed</button>
+                      ) : (
+                        <button 
+                          className="btn-approve" 
+                          onClick={() => handleExpressInterest(opportunity._id)}
+                        >
+                          Express Interest
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p>No funding opportunities available at the moment.</p>
+              <div className="no-opportunities">
+                <p>No approved funding opportunities available at the moment.</p>
+                <p className="note">Funding proposals must be approved by a registrar before they appear here.</p>
+              </div>
             )}
           </div>
         );
@@ -123,6 +179,76 @@ function SponsorDashboard() {
         </div>
         <div className="main-content">{renderTabContent()}</div>
       </div>
+
+      {/* Event Details Modal */}
+      {showModal && selectedOpportunity && (
+        <div className="modal-overlay">
+          <div className="event-details-modal">
+            <div className="modal-header">
+              <h2>{selectedOpportunity.name}</h2>
+              <button className="close-button" onClick={closeModal}>×</button>
+            </div>
+            <div className="modal-content">
+              <div className="event-detail-item">
+                <strong>Description:</strong>
+                <p>{selectedOpportunity.description}</p>
+              </div>
+              <div className="event-detail-row">
+                <div className="event-detail-item">
+                  <strong>Club:</strong>
+                  <p>{selectedOpportunity.club}</p>
+                </div>
+                <div className="event-detail-item">
+                  <strong>Date:</strong>
+                  <p>{new Date(selectedOpportunity.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="event-detail-row">
+                <div className="event-detail-item">
+                  <strong>Location:</strong>
+                  <p>{selectedOpportunity.location}</p>
+                </div>
+                <div className="event-detail-item">
+                  <strong>Expected Attendance:</strong>
+                  <p>{selectedOpportunity.attendance}</p>
+                </div>
+              </div>
+              <div className="event-detail-row">
+                <div className="event-detail-item">
+                  <strong>Starting Price:</strong>
+                  <p>${selectedOpportunity.startingPrice}</p>
+                </div>
+                <div className="event-detail-item">
+                  <strong>Status:</strong>
+                  <p>{selectedOpportunity.status}</p>
+                </div>
+              </div>
+              {selectedOpportunity.additionalDetails && (
+                <div className="event-detail-item">
+                  <strong>Additional Details:</strong>
+                  <p>{selectedOpportunity.additionalDetails}</p>
+                </div>
+              )}
+              <div className="modal-actions">
+                <button className="btn-approve" onClick={closeModal}>Close</button>
+                {hasExpressedInterest(selectedOpportunity) ? (
+                  <button className="btn-disabled" disabled>Interest Expressed</button>
+                ) : (
+                  <button 
+                    className="btn-approve" 
+                    onClick={() => {
+                      handleExpressInterest(selectedOpportunity._id);
+                      closeModal();
+                    }}
+                  >
+                    Express Interest
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ const {
     registerSponsor,
     loginUser,
     getMe,
+    getUserById,
     approveUser
 } = require('../controllers/userController');
 
@@ -18,7 +19,10 @@ router.post('/regsponsor', registerSponsor);
 router.post('/login', loginUser);
 router.get('/me', protect, getMe);
 
-// New: Only panel/registrar can approve users
+// Get user by id - only accessible by registrar and admin
+router.get('/:id', protect, authorizeRoles('registrar', 'admin'), getUserById);
+
+// Approval - only panel/registrar can approve users
 router.put('/approve/:id', protect, authorizeRoles('panel', 'registrar'), approveUser);
 
 module.exports = router;

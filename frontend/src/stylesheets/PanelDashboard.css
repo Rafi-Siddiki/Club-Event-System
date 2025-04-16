@@ -1,0 +1,206 @@
+.panel-dashboard {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.panel-dashboard h1 {
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 30px;
+}
+
+.dashboard-actions button {
+  background-color: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.dashboard-actions button:hover {
+  background-color: #5a70d2;
+}
+
+.funding-proposal-form {
+  background-color: #82bee3;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  padding: 30px;
+  margin-bottom: 30px;
+}
+
+.funding-proposal-form h2 {
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.8rem;
+}
+
+.funding-proposal-form .form-group {
+  margin-bottom: 20px;
+}
+
+.funding-proposal-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #444;
+}
+
+.funding-proposal-form input,
+.funding-proposal-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.funding-proposal-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.funding-proposal-form input:focus,
+.funding-proposal-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.packages-section {
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+
+.packages-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.package-item {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.package-item h4 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.benefits-section {
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.benefit-item {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.benefit-item input {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.add-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.add-btn:hover {
+  background-color: #218838;
+}
+
+.remove-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.remove-btn:hover {
+  background-color: #c82333;
+}
+
+.remove-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.submit-btn {
+  background-color: #667eea;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  width: 100%;
+  margin-top: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.submit-btn:hover {
+  background-color: #5a70d2;
+}
+
+.submit-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.success {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .panel-dashboard {
+    padding: 10px;
+  }
+  
+  .funding-proposal-form {
+    padding: 15px;
+  }
+  
+  .package-item {
+    padding: 15px;
+  }
+}

@@ -6,6 +6,16 @@ const User = require('../models/userModel');
 // @route   GET /api/opportunities
 // @access  Private
 const getOpportunities = asyncHandler(async (req, res) => {
+    // Check if request is from a sponsor user
+    if (req.user.role === 'sponsor') {
+        // Only return opportunities with approved sponsorship requests
+        const opportunities = await Opportunity.find({
+            'sponsorshipRequestApproval.status': 'approved'
+        });
+        return res.status(200).json(opportunities);
+    }
+    
+    // For other roles (admin, registrar, etc.), return all opportunities
     const opportunities = await Opportunity.find({});
     res.status(200).json(opportunities);
 });
@@ -122,11 +132,98 @@ const expressInterest = asyncHandler(async (req, res) => {
     res.status(200).json(opportunity);
 });
 
+// @desc    Approve sponsor interest for an opportunity
+// @route   PUT /api/opportunities/:id/interest/:sponsorId/approve
+// @access  Private (Registrar only)
+const approveInterest = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can approve interest requests');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    const sponsorId = req.params.sponsorId;
+    
+    // Check if sponsor has expressed interest
+    if (!opportunity.interestedSponsors.includes(sponsorId)) {
+        res.status(404);
+        throw new Error('This sponsor has not expressed interest in this opportunity');
+    }
+
+    // Update the opportunity with approval details
+    opportunity.sponsorshipRequestApproval = {
+        status: 'approved',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Interest request approved'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Sponsor interest has been approved',
+        opportunity
+    });
+});
+
+// @desc    Reject sponsor interest for an opportunity
+// @route   PUT /api/opportunities/:id/interest/:sponsorId/reject
+// @access  Private (Registrar only)
+const rejectInterest = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can reject interest requests');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    const sponsorId = req.params.sponsorId;
+    
+    // Check if sponsor has expressed interest
+    if (!opportunity.interestedSponsors.includes(sponsorId)) {
+        res.status(404);
+        throw new Error('This sponsor has not expressed interest in this opportunity');
+    }
+
+    // Update the opportunity with rejection details
+    opportunity.sponsorshipRequestApproval = {
+        status: 'rejected',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Interest request rejected'
+    };
+
+    // Remove sponsor from interested sponsors list
+    opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
+        id => id.toString() !== sponsorId
+    );
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Sponsor interest has been rejected',
+        opportunity
+    });
+});
+
 module.exports = {
     getOpportunities,
     getOpportunityById,
     createOpportunity,
     updateOpportunity,
     deleteOpportunity,
-    expressInterest
+    expressInterest,
+    approveInterest,
+    rejectInterest
 };

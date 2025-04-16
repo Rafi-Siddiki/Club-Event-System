@@ -6,9 +6,12 @@ const {
     createOpportunity,
     updateOpportunity,
     deleteOpportunity,
-    expressInterest
+    expressInterest,
+    approveInterest,
+    rejectInterest
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
+const { authorizeRoles } = require('../middleware/customMiddleware');
 
 // Routes for opportunities
 router.get('/', protect, getOpportunities);
@@ -17,5 +20,9 @@ router.post('/', protect, createOpportunity);
 router.put('/:id', protect, updateOpportunity);
 router.delete('/:id', protect, deleteOpportunity);
 router.post('/:id/interest', protect, expressInterest);
+
+// New routes for approving/rejecting interest
+router.put('/:id/interest/:sponsorId/approve', protect, authorizeRoles('registrar'), approveInterest);
+router.put('/:id/interest/:sponsorId/reject', protect, authorizeRoles('registrar'), rejectInterest);
 
 module.exports = router;
