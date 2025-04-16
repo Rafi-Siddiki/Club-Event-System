@@ -63,7 +63,41 @@ const opportunitySchema = mongoose.Schema({
     interestedSponsors: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
-    }]
+    }],
+    sponsorshipRequestApproval: {
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        updatedAt: {
+            type: Date
+        },
+        comments: {
+            type: String
+        }
+    },
+    sponsorshipContributionApproval: {
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'declined'],
+            default: 'pending'
+        },
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        updatedAt: {
+            type: Date
+        },
+        comments: {
+            type: String
+        }
+    }
 }, {
     timestamps: true
 });

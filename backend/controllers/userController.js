@@ -159,6 +159,26 @@ const getMe = asyncHandler(async (req, res) => {
     });
 });
 
+//@desc Get user by ID
+//@route GET /api/users/:id
+//@access Private (admin, registrar)
+const getUserById = asyncHandler(async (req, res) => {
+    // Only registrar and admin can access this endpoint
+    if (!['registrar', 'admin'].includes(req.user.role)) {
+        res.status(403);
+        throw new Error('Not authorized to access this resource');
+    }
+
+    const user = await User.findById(req.params.id).select('-password');
+
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    res.status(200).json(user);
+});
+
 //@desc Generate JWT token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -188,5 +208,6 @@ module.exports = {
     registerSponsor,
     loginUser,
     getMe,
+    getUserById,
     approveUser
 };
