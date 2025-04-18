@@ -50,6 +50,20 @@ function PanelDashboard() {
     })
   }
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({
+          ...formData,
+          image: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handlePackageChange = (index, e) => {
     const { name, value } = e.target
     const newPackages = [...formData.packages]
@@ -236,13 +250,18 @@ function PanelDashboard() {
               </div>
 
               <div className="form-group">
-                <label>Image URL (Optional)</label>
+                <label>Event Image (Optional)</label>
                 <input
-                  type="text"
+                  type="file"
                   name="image"
-                  value={formData.image}
-                  onChange={handleChange}
+                  accept="image/*"
+                  onChange={(e) => handleImageChange(e)}
                 />
+                {formData.image && (
+                  <div className="image-preview">
+                    <img src={formData.image} alt="Preview" style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }} />
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
