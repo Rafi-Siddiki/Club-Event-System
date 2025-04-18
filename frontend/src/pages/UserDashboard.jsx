@@ -3,7 +3,7 @@ import '../stylesheets/ViewMyProfile.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import '../stylesheets/SponsorDashboard.css'; // Reuse sponsor dashboard styles
+import '../stylesheets/UserDashboard.css'; // Reuse sponsor dashboard styles
 import { toast } from 'react-toastify';
 
 function UserDashboard() {
@@ -132,7 +132,8 @@ function UserDashboard() {
 
   // Check if user is already attending
   const isAttending = (opportunity) => {
-    return opportunity.attendingUsers && 
+    return user && 
+           opportunity.attendingUsers && 
            Array.isArray(opportunity.attendingUsers) && 
            opportunity.attendingUsers.includes(user._id);
   };
@@ -150,7 +151,16 @@ function UserDashboard() {
             ) : opportunities.length > 0 ? (
               <div className="proposals-list">
                 {opportunities.map((opportunity) => (
-                  <div key={opportunity._id} className="proposal-card">
+                  <div 
+                    key={opportunity._id} 
+                    className="proposal-card"
+                    style={opportunity.image ? {
+                      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(${opportunity.image})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      color: 'white'
+                    } : {}}
+                  >
                     <h3>{opportunity.name}</h3>
                     <p>{opportunity.description}</p>
                     <div className="proposal-details">
@@ -273,6 +283,17 @@ function UserDashboard() {
               <h2>{selectedOpportunity.name}</h2>
               <button className="close-button" onClick={closeModal}>×</button>
             </div>
+            
+            {/* Image Cover */}
+            {selectedOpportunity.image && (
+              <div className="event-cover-image">
+                <img 
+                  src={selectedOpportunity.image} 
+                  alt={selectedOpportunity.name} 
+                />
+              </div>
+            )}
+            
             <div className="modal-content">
               <div className="event-detail-item">
                 <strong>Description:</strong>
