@@ -12,6 +12,7 @@ function RegistrarDashboard() {
   const [activeTab, setActiveTab] = useState('interestRequests');
   const [opportunities, setOpportunities] = useState([]);
   const [interestedSponsors, setInterestedSponsors] = useState([]);
+  const [opportunitiesForApproval, setOpportunitiesForApproval] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -31,6 +32,8 @@ function RegistrarDashboard() {
   useEffect(() => {
     if (activeTab === 'interestRequests') {
       fetchOpportunities();
+    } else if (activeTab === 'eventApprovals') {
+      fetchOpportunitiesForApproval();
     }
   }, [activeTab]);
 
@@ -80,6 +83,31 @@ function RegistrarDashboard() {
     }
   };
 
+  // Fetch all opportunities for approval
+  const fetchOpportunitiesForApproval = async () => {
+    setLoading(true);
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      const response = await axios.get('/api/opportunities', config);
+      
+      // Filter opportunities that require approval
+      const opportunitiesForApproval = response.data.filter(
+        opportunity => !opportunity.generalApproval || opportunity.generalApproval.status === 'pending'
+      );
+      
+      setOpportunitiesForApproval(opportunitiesForApproval);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to fetch opportunities requiring approval');
+      setLoading(false);
+    }
+  };
+
   const handleApproveInterest = async (opportunityId, sponsorId) => {
     try {
       const config = {
@@ -122,10 +150,52 @@ function RegistrarDashboard() {
     }
   };
 
+  const handleApproveEvent = async (opportunityId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${opportunityId}/approve`, {}, config);
+      toast.success('Event approved successfully');
+      fetchOpportunitiesForApproval();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to approve event';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleRejectEvent = async (opportunityId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${opportunityId}/reject`, {}, config);
+      toast.success('Event rejected successfully');
+      fetchOpportunitiesForApproval();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject event';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleViewDetails = (opportunity, sponsor) => {
     setSelectedRequest({
       opportunity,
       sponsor
+    });
+    setShowModal(true);
+  };
+
+  const handleViewEventDetails = (opportunity) => {
+    setSelectedRequest({
+      opportunity,
+      type: 'event'
     });
     setShowModal(true);
   };
@@ -210,6 +280,67 @@ function RegistrarDashboard() {
             )}
           </div>
         );
+      case 'eventApprovals':
+        return (
+          <div className="event-approvals">
+            <h2>Event Approval Requests</h2>
+            {loading ? (
+              <p>Loading events...</p>
+            ) : error ? (
+              <p className="error">{error}</p>
+            ) : opportunitiesForApproval.length > 0 ? (
+              <table className="interest-requests-table">
+                <thead>
+                  <tr>
+                    <th>Event Name</th>
+                    <th>Club</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {opportunitiesForApproval.map(opportunity => (
+                    <tr key={opportunity._id}>
+                      <td>{opportunity.name}</td>
+                      <td>{opportunity.club}</td>
+                      <td>{new Date(opportunity.date).toLocaleDateString()}</td>
+                      <td>
+                        <span className={`status-badge status-${opportunity.generalApproval?.status || 'pending'}`}>
+                          {opportunity.generalApproval?.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          className="btn-view-details" 
+                          onClick={() => handleViewEventDetails(opportunity)}
+                        >
+                          View Details
+                        </button>
+                        <button 
+                          className="btn-approve" 
+                          onClick={() => handleApproveEvent(opportunity._id)}
+                        >
+                          Approve
+                        </button>
+                        <button 
+                          className="btn-reject" 
+                          onClick={() => handleRejectEvent(opportunity._id)}
+                        >
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-requests">
+                <p>No pending event approval requests.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -237,6 +368,12 @@ function RegistrarDashboard() {
               onClick={() => setActiveTab('interestRequests')}
             >
               <i className="fas fa-handshake"></i> Sponsor Interest Requests
+            </li>
+            <li
+              className={activeTab === 'eventApprovals' ? 'active' : ''}
+              onClick={() => setActiveTab('eventApprovals')}
+            >
+              <i className="fas fa-calendar-check"></i> Event Approvals
             </li>
             {/* Add more menu items here as needed */}
           </ul>
@@ -275,43 +412,66 @@ function RegistrarDashboard() {
                 <p>{selectedRequest.opportunity.attendance}</p>
               </div>
               
-              <h3>Sponsor Information</h3>
-              <div className="event-detail-item">
-                <strong>Name:</strong>
-                <p>{selectedRequest.sponsor.name}</p>
-              </div>
-              <div className="event-detail-item">
-                <strong>Company:</strong>
-                <p>{selectedRequest.sponsor.company}</p>
-              </div>
-              <div className="event-detail-item">
-                <strong>Email:</strong>
-                <p>{selectedRequest.sponsor.email || 'Not available'}</p>
-              </div>
-              <div className="event-detail-item">
-                <strong>Phone:</strong>
-                <p>{selectedRequest.sponsor.phone || 'Not available'}</p>
-              </div>
+              {selectedRequest.sponsor && (
+                <>
+                  <h3>Sponsor Information</h3>
+                  <div className="event-detail-item">
+                    <strong>Name:</strong>
+                    <p>{selectedRequest.sponsor.name}</p>
+                  </div>
+                  <div className="event-detail-item">
+                    <strong>Company:</strong>
+                    <p>{selectedRequest.sponsor.company}</p>
+                  </div>
+                  <div className="event-detail-item">
+                    <strong>Email:</strong>
+                    <p>{selectedRequest.sponsor.email || 'Not available'}</p>
+                  </div>
+                  <div className="event-detail-item">
+                    <strong>Phone:</strong>
+                    <p>{selectedRequest.sponsor.phone || 'Not available'}</p>
+                  </div>
+                </>
+              )}
               
               <div className="modal-actions">
-                <button 
-                  className="btn-approve" 
-                  onClick={() => handleApproveInterest(
-                    selectedRequest.opportunity._id, 
-                    selectedRequest.sponsor._id
-                  )}
-                >
-                  Approve Request
-                </button>
-                <button 
-                  className="btn-reject" 
-                  onClick={() => handleRejectInterest(
-                    selectedRequest.opportunity._id, 
-                    selectedRequest.sponsor._id
-                  )}
-                >
-                  Reject Request
-                </button>
+                {selectedRequest.sponsor ? (
+                  <>
+                    <button 
+                      className="btn-approve" 
+                      onClick={() => handleApproveInterest(
+                        selectedRequest.opportunity._id, 
+                        selectedRequest.sponsor._id
+                      )}
+                    >
+                      Approve Request
+                    </button>
+                    <button 
+                      className="btn-reject" 
+                      onClick={() => handleRejectInterest(
+                        selectedRequest.opportunity._id, 
+                        selectedRequest.sponsor._id
+                      )}
+                    >
+                      Reject Request
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className="btn-approve" 
+                      onClick={() => handleApproveEvent(selectedRequest.opportunity._id)}
+                    >
+                      Approve Event
+                    </button>
+                    <button 
+                      className="btn-reject" 
+                      onClick={() => handleRejectEvent(selectedRequest.opportunity._id)}
+                    >
+                      Reject Event
+                    </button>
+                  </>
+                )}
                 <button className="btn-view-details" onClick={closeModal}>Close</button>
               </div>
             </div>
