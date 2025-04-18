@@ -17,6 +17,9 @@ function RegistrarDashboard() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userError, setUserError] = useState(null);
 
   useEffect(() => {
     document.title = 'Registrar Dashboard';
@@ -34,6 +37,8 @@ function RegistrarDashboard() {
       fetchOpportunities();
     } else if (activeTab === 'eventApprovals') {
       fetchOpportunitiesForApproval();
+    } else if (activeTab === 'userApprovals') {
+      fetchPendingUsers();
     }
   }, [activeTab]);
 
@@ -105,6 +110,27 @@ function RegistrarDashboard() {
     } catch (err) {
       setError('Failed to fetch opportunities requiring approval');
       setLoading(false);
+    }
+  };
+
+  // Fetch all pending users
+  const fetchPendingUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      const response = await axios.get('/api/users', config);
+      // Filter to only show users with approved = false
+      const pendingUsersList = response.data.filter(user => !user.approved);
+      setPendingUsers(pendingUsersList);
+      setLoadingUsers(false);
+    } catch (err) {
+      setUserError('Failed to fetch pending users');
+      setLoadingUsers(false);
     }
   };
 
@@ -180,6 +206,25 @@ function RegistrarDashboard() {
       fetchOpportunitiesForApproval();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to reject event';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleApproveUser = async (userId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/users/approve/${userId}`, {}, config);
+      toast.success('User approved successfully');
+      
+      // Refresh the list
+      fetchPendingUsers();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to approve user';
       toast.error(errorMessage);
     }
   };
@@ -341,6 +386,53 @@ function RegistrarDashboard() {
             )}
           </div>
         );
+      case 'userApprovals':
+        return (
+          <div className="user-approvals">
+            <h2>User Approval Requests</h2>
+            {loadingUsers ? (
+              <p>Loading users...</p>
+            ) : userError ? (
+              <p className="error">{userError}</p>
+            ) : pendingUsers.length > 0 ? (
+              <table className="interest-requests-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Role</th>
+                    <th>Club/Company</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingUsers.map(pendingUser => (
+                    <tr key={pendingUser._id}>
+                      <td>{pendingUser.name}</td>
+                      <td>{pendingUser.email}</td>
+                      <td>{pendingUser.phone}</td>
+                      <td>{pendingUser.role}</td>
+                      <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
+                      <td>
+                        <button 
+                          className="btn-approve" 
+                          onClick={() => handleApproveUser(pendingUser._id)}
+                        >
+                          Approve
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-requests">
+                <p>No pending user approval requests.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -374,6 +466,12 @@ function RegistrarDashboard() {
               onClick={() => setActiveTab('eventApprovals')}
             >
               <i className="fas fa-calendar-check"></i> Event Approvals
+            </li>
+            <li
+              className={activeTab === 'userApprovals' ? 'active' : ''}
+              onClick={() => setActiveTab('userApprovals')}
+            >
+              <i className="fas fa-users"></i> User Approvals
             </li>
             {/* Add more menu items here as needed */}
           </ul>

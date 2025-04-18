@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import '../stylesheets/ViewMyProfile.css';
 import '../stylesheets/PanelDashboard.css';
+import '../stylesheets/RegistrarDashboard.css';
 import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import axios from 'axios'
+import { toast } from 'react-toastify'; // Make sure this is imported
 
 function PanelDashboard() {
   const [formData, setFormData] = useState({
@@ -24,6 +26,9 @@ function PanelDashboard() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState('fundingProposals')
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userError, setUserError] = useState(null);
   
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
@@ -41,6 +46,12 @@ function PanelDashboard() {
       }))
     }
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'userApprovals') {
+      fetchPendingUsers();
+    }
+  }, [activeTab]);
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -162,6 +173,45 @@ function PanelDashboard() {
       setLoading(false)
     }
   }
+
+  const fetchPendingUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      const response = await axios.get('/api/users', config);
+      // Filter to only show users with approved = false
+      const pendingUsersList = response.data.filter(user => !user.approved);
+      setPendingUsers(pendingUsersList);
+      setLoadingUsers(false);
+    } catch (err) {
+      setUserError('Failed to fetch pending users');
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleApproveUser = async (userId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/users/approve/${userId}`, {}, config);
+      toast.success('User approved successfully');
+      
+      // Refresh the list
+      fetchPendingUsers();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to approve user';
+      toast.error(errorMessage);
+    }
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -371,6 +421,53 @@ function PanelDashboard() {
             </form>
           </div>
         );
+      case 'userApprovals':
+        return (
+          <div className="panel-user-approvals">
+            <h2>User Approval Requests</h2>
+            {loadingUsers ? (
+              <p className="panel-loading">Loading users...</p>
+            ) : userError ? (
+              <p className="panel-error">{userError}</p>
+            ) : pendingUsers.length > 0 ? (
+              <table className="panel-approval-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Role</th>
+                    <th>Club/Company</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingUsers.map(pendingUser => (
+                    <tr key={pendingUser._id}>
+                      <td>{pendingUser.name}</td>
+                      <td>{pendingUser.email}</td>
+                      <td>{pendingUser.phone}</td>
+                      <td>{pendingUser.role}</td>
+                      <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
+                      <td>
+                        <button 
+                          className="panel-approve-btn" 
+                          onClick={() => handleApproveUser(pendingUser._id)}
+                        >
+                          Approve
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="panel-no-requests">
+                <p>No pending user approval requests.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -397,6 +494,12 @@ function PanelDashboard() {
               onClick={() => setActiveTab('fundingProposals')}
             >
               <i className="fas fa-handshake"></i> Apply for Sponsorship
+            </li>
+            <li
+              className={activeTab === 'userApprovals' ? 'active' : ''}
+              onClick={() => setActiveTab('userApprovals')}
+            >
+              <i className="fas fa-users"></i> User Approvals
             </li>
             {/* More menu items can be added here */}
           </ul>
