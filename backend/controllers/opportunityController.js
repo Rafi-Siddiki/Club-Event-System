@@ -217,6 +217,141 @@ const rejectInterest = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Approve opportunity for general display
+// @route   PUT /api/opportunities/:id/approve
+// @access  Private (Registrar only)
+const approveOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can approve opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with approval details
+    opportunity.generalApproval = {
+        status: 'approved',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event approved'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been approved',
+        opportunity
+    });
+});
+
+// @desc    Reject opportunity for general display
+// @route   PUT /api/opportunities/:id/reject
+// @access  Private (Registrar only)
+const rejectOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can reject opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with rejection details
+    opportunity.generalApproval = {
+        status: 'rejected',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event rejected'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been rejected',
+        opportunity
+    });
+});
+
+// @desc    Mark user as attending an event
+// @route   POST /api/opportunities/:id/attend
+// @access  Private
+const attendEvent = asyncHandler(async (req, res) => {
+    const opportunity = await Opportunity.findById(req.params.id);
+
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Event not found');
+    }
+
+    // Check if event is approved
+    if (opportunity.generalApproval.status !== 'approved') {
+        res.status(400);
+        throw new Error('This event is not currently approved for attendance');
+    }
+
+    // Check if user is already attending
+    if (opportunity.attendingUsers.includes(req.user.id)) {
+        res.status(400);
+        throw new Error('You are already attending this event');
+    }
+
+    opportunity.attendingUsers.push(req.user.id);
+    await opportunity.save();
+
+    res.status(200).json(opportunity);
+});
+
+// @desc    Remove user from attending an event
+// @route   DELETE /api/opportunities/:id/attend
+// @access  Private
+const cancelAttendance = asyncHandler(async (req, res) => {
+    const opportunity = await Opportunity.findById(req.params.id);
+
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Event not found');
+    }
+
+    // Check if user is actually attending
+    if (!opportunity.attendingUsers.includes(req.user.id)) {
+        res.status(400);
+        throw new Error('You are not attending this event');
+    }
+
+    // Remove user from attending users list
+    opportunity.attendingUsers = opportunity.attendingUsers.filter(
+        id => id.toString() !== req.user.id.toString()
+    );
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'You have cancelled your attendance',
+        opportunity
+    });
+});
+
+// @desc    Get events user is attending
+// @route   GET /api/opportunities/attending
+// @access  Private
+const getAttendingEvents = asyncHandler(async (req, res) => {
+    const attendingEvents = await Opportunity.find({
+        attendingUsers: req.user.id,
+        'generalApproval.status': 'approved'
+    });
+
+    res.status(200).json(attendingEvents);
+});
+
 module.exports = {
     getOpportunities,
     getOpportunityById,
@@ -225,5 +360,10 @@ module.exports = {
     deleteOpportunity,
     expressInterest,
     approveInterest,
-    rejectInterest
+    rejectInterest,
+    approveOpportunity,
+    rejectOpportunity,
+    attendEvent,
+    cancelAttendance,
+    getAttendingEvents
 };

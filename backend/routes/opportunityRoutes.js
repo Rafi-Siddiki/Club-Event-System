@@ -8,10 +8,18 @@ const {
     deleteOpportunity,
     expressInterest,
     approveInterest,
-    rejectInterest
+    rejectInterest,
+    approveOpportunity,
+    rejectOpportunity,
+    attendEvent,
+    cancelAttendance,
+    getAttendingEvents
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/customMiddleware');
+
+// Add this route before your other opportunity routes
+router.get('/attending', protect, getAttendingEvents);
 
 // Routes for opportunities
 router.get('/', protect, getOpportunities);
@@ -21,7 +29,15 @@ router.put('/:id', protect, updateOpportunity);
 router.delete('/:id', protect, deleteOpportunity);
 router.post('/:id/interest', protect, expressInterest);
 
-// New routes for approving/rejecting interest
+// New routes for general approval
+router.put('/:id/approve', protect, authorizeRoles('registrar'), approveOpportunity);
+router.put('/:id/reject', protect, authorizeRoles('registrar'), rejectOpportunity);
+
+// New routes for user attendance
+router.post('/:id/attend', protect, attendEvent);
+router.delete('/:id/attend', protect, cancelAttendance);
+
+// Routes for approving/rejecting interest
 router.put('/:id/interest/:sponsorId/approve', protect, authorizeRoles('registrar'), approveInterest);
 router.put('/:id/interest/:sponsorId/reject', protect, authorizeRoles('registrar'), rejectInterest);
 
