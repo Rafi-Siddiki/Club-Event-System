@@ -8,7 +8,8 @@ const {
     loginUser,
     getMe,
     getUserById,
-    approveUser
+    approveUser,
+    getAllUsers
 } = require('../controllers/userController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -18,6 +19,9 @@ router.post('/reguser', registerUser);
 router.post('/regsponsor', registerSponsor);
 router.post('/login', loginUser);
 router.get('/me', protect, getMe);
+
+// Update the route for getting all users
+router.get('/', protect, authorizeRoles('panel', 'registrar'), getAllUsers);
 
 // Get user by id - only accessible by registrar and admin
 router.get('/:id', protect, authorizeRoles('registrar', 'admin'), getUserById);
