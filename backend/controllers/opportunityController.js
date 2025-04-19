@@ -384,6 +384,33 @@ const rejectSponsorshipRequest = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Create sponsorship request for an opportunity
+// @route   POST /api/opportunities/:id/sponsorship
+// @access  Private
+const createSponsorshipRequest = asyncHandler(async (req, res) => {
+    const opportunity = await Opportunity.findById(req.params.id);
+
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update opportunity with sponsorship details
+    opportunity.startingPrice = req.body.startingPrice;
+    opportunity.packages = req.body.packages;
+    
+    // Set the sponsorship request approval to pending
+    opportunity.sponsorshipRequestApproval = {
+        status: 'pending',
+        updatedBy: req.user.id,
+        updatedAt: Date.now()
+    };
+
+    await opportunity.save();
+
+    res.status(200).json(opportunity);
+});
+
 // @desc    Mark user as attending an event
 // @route   POST /api/opportunities/:id/attend
 // @access  Private
@@ -498,5 +525,6 @@ module.exports = {
     getAttendingEvents,
     approveSponsorshipRequest,
     rejectSponsorshipRequest,
+    createSponsorshipRequest,
     getInterestedPackages
 };

@@ -16,7 +16,8 @@ const {
     getAttendingEvents,
     approveSponsorshipRequest,
     rejectSponsorshipRequest,
-    getInterestedPackages
+    getInterestedPackages,
+    createSponsorshipRequest
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/customMiddleware');
@@ -48,5 +49,8 @@ router.put('/:id/interest/:sponsorId/reject', protect, authorizeRoles('registrar
 // Routes for sponsorship request approval
 router.put('/:id/sponsorship/approve', protect, authorizeRoles('registrar'), approveSponsorshipRequest);
 router.put('/:id/sponsorship/reject', protect, authorizeRoles('registrar'), rejectSponsorshipRequest);
+
+// Add this right before or after your other sponsorship routes
+router.post('/:id/sponsorship', protect, createSponsorshipRequest);
 
 module.exports = router;
