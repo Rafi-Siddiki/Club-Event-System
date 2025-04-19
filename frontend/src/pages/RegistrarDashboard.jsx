@@ -20,6 +20,7 @@ function RegistrarDashboard() {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
+  const [pendingSponsorships, setPendingSponsorships] = useState([]);
 
   useEffect(() => {
     document.title = 'Registrar Dashboard';
@@ -39,6 +40,8 @@ function RegistrarDashboard() {
       fetchOpportunitiesForApproval();
     } else if (activeTab === 'userApprovals') {
       fetchPendingUsers();
+    } else if (activeTab === 'sponsorshipApprovals') {
+      fetchPendingSponsorships();
     }
   }, [activeTab]);
 
@@ -54,25 +57,51 @@ function RegistrarDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter opportunities that have interested sponsors
+      // Filter opportunities that have interested sponsors (either general or package-specific)
       const opportunitiesWithInterest = response.data.filter(
-        opportunity => opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0
+        opportunity => (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) ||
+                       (opportunity.interestedPackages && opportunity.interestedPackages.length > 0)
       );
       
       setOpportunities(opportunitiesWithInterest);
       
-      // For each opportunity with interested sponsors, fetch sponsor details
+      // For each opportunity, fetch sponsor details
       const sponsorsPromises = [];
+      const sponsorIds = new Set();
+      
       opportunitiesWithInterest.forEach(opportunity => {
-        opportunity.interestedSponsors.forEach(sponsorId => {
-          sponsorsPromises.push(
-            axios.get(`/api/users/${sponsorId}`, config)
-              .catch(err => {
-                console.error(`Error fetching sponsor ${sponsorId}:`, err);
-                return { data: { _id: sponsorId, name: 'Unknown Sponsor', company: 'Unknown Company' } };
-              })
-          );
-        });
+        // Add general interest sponsors
+        if (opportunity.interestedSponsors) {
+          opportunity.interestedSponsors.forEach(sponsorId => {
+            if (!sponsorIds.has(sponsorId)) {
+              sponsorIds.add(sponsorId);
+              sponsorsPromises.push(
+                axios.get(`/api/users/${sponsorId}`, config)
+                  .catch(err => {
+                    console.error(`Error fetching sponsor ${sponsorId}:`, err);
+                    return { data: { _id: sponsorId, name: 'Unknown Sponsor', company: 'Unknown Company' } };
+                  })
+              );
+            }
+          });
+        }
+        
+        // Add package-specific interest sponsors
+        if (opportunity.interestedPackages) {
+          opportunity.interestedPackages.forEach(packageInterest => {
+            const sponsorId = packageInterest.sponsorId;
+            if (!sponsorIds.has(sponsorId)) {
+              sponsorIds.add(sponsorId);
+              sponsorsPromises.push(
+                axios.get(`/api/users/${sponsorId}`, config)
+                  .catch(err => {
+                    console.error(`Error fetching sponsor ${sponsorId}:`, err);
+                    return { data: { _id: sponsorId, name: 'Unknown Sponsor', company: 'Unknown Company' } };
+                  })
+              );
+            }
+          });
+        }
       });
       
       if (sponsorsPromises.length > 0) {
@@ -131,6 +160,31 @@ function RegistrarDashboard() {
     } catch (err) {
       setUserError('Failed to fetch pending users');
       setLoadingUsers(false);
+    }
+  };
+
+  const fetchPendingSponsorships = async () => {
+    setLoading(true);
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      const response = await axios.get('/api/opportunities', config);
+      
+      // Filter to only include opportunities with pending sponsorship requests
+      const pendingSponsorshipsList = response.data.filter(
+        opportunity => opportunity.sponsorshipRequestApproval && 
+                     opportunity.sponsorshipRequestApproval.status === 'pending'
+      );
+      
+      setPendingSponsorships(pendingSponsorshipsList);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to fetch pending sponsorship requests');
+      setLoading(false);
     }
   };
 
@@ -229,6 +283,40 @@ function RegistrarDashboard() {
     }
   };
 
+  const handleApproveSponsorshipRequest = async (opportunityId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${opportunityId}/sponsorship/approve`, {}, config);
+      toast.success('Sponsorship request approved successfully');
+      fetchPendingSponsorships();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to approve sponsorship request';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleRejectSponsorshipRequest = async (opportunityId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${opportunityId}/sponsorship/reject`, {}, config);
+      toast.success('Sponsorship request rejected successfully');
+      fetchPendingSponsorships();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject sponsorship request';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleViewDetails = (opportunity, sponsor) => {
     setSelectedRequest({
       opportunity,
@@ -241,6 +329,15 @@ function RegistrarDashboard() {
     setSelectedRequest({
       opportunity,
       type: 'event'
+    });
+    setShowModal(true);
+  };
+
+  const handleViewPackageInterestDetails = (opportunity, sponsor, packageIndex) => {
+    setSelectedRequest({
+      opportunity,
+      sponsor,
+      packageIndex
     });
     setShowModal(true);
   };
@@ -268,7 +365,8 @@ function RegistrarDashboard() {
               <p>Loading requests...</p>
             ) : error ? (
               <p className="error">{error}</p>
-            ) : opportunities.length > 0 ? (
+            ) : (opportunities.length > 0 || 
+               opportunities.some(opp => opp.interestedPackages && opp.interestedPackages.length > 0)) ? (
               <table className="interest-requests-table">
                 <thead>
                   <tr>
@@ -276,13 +374,15 @@ function RegistrarDashboard() {
                     <th>Club</th>
                     <th>Sponsor</th>
                     <th>Company</th>
+                    <th>Request Type</th>
                     <th>Request Date</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {/* General interests */}
                   {opportunities.flatMap(opportunity => 
-                    opportunity.interestedSponsors.map(sponsorId => {
+                    opportunity.interestedSponsors ? opportunity.interestedSponsors.map(sponsorId => {
                       const sponsor = getSponsorById(sponsorId);
                       return (
                         <tr key={`${opportunity._id}-${sponsorId}`}>
@@ -290,30 +390,73 @@ function RegistrarDashboard() {
                           <td>{opportunity.club}</td>
                           <td>{sponsor.name}</td>
                           <td>{sponsor.company}</td>
+                          <td>General Interest</td>
                           <td>{new Date().toLocaleDateString()}</td>
                           <td>
                             <button 
                               className="btn-view-details" 
                               onClick={() => handleViewDetails(opportunity, sponsor)}
                             >
-                              View Details
+                              <i className="fas fa-eye"></i> Details
                             </button>
                             <button 
                               className="btn-approve" 
                               onClick={() => handleApproveInterest(opportunity._id, sponsorId)}
                             >
-                              Approve
+                              <i className="fas fa-check"></i> Approve
                             </button>
                             <button 
                               className="btn-reject" 
                               onClick={() => handleRejectInterest(opportunity._id, sponsorId)}
                             >
-                              Reject
+                              <i className="fas fa-times"></i> Reject
                             </button>
                           </td>
                         </tr>
                       );
-                    })
+                    }) : []
+                  )}
+                  
+                  {/* Package-specific interests */}
+                  {opportunities.flatMap(opportunity => 
+                    opportunity.interestedPackages ? opportunity.interestedPackages.map(packageInterest => {
+                      const sponsor = getSponsorById(packageInterest.sponsorId);
+                      const packageIndex = packageInterest.packageIndex;
+                      const packageName = opportunity.packages && opportunity.packages[packageIndex] 
+                        ? (opportunity.packages[packageIndex].name || `Package ${packageIndex + 1}`)
+                        : `Package ${packageIndex + 1}`;
+                      
+                      return (
+                        <tr key={`${opportunity._id}-${packageInterest.sponsorId}-pkg-${packageIndex}`}>
+                          <td>{opportunity.name}</td>
+                          <td>{opportunity.club}</td>
+                          <td>{sponsor.name}</td>
+                          <td>{sponsor.company}</td>
+                          <td>{packageName}</td>
+                          <td>{new Date(packageInterest.expressedAt || Date.now()).toLocaleDateString()}</td>
+                          <td>
+                            <button 
+                              className="btn-view-details" 
+                              onClick={() => handleViewPackageInterestDetails(opportunity, sponsor, packageIndex)}
+                            >
+                              <i className="fas fa-eye"></i> Details
+                            </button>
+                            <button 
+                              className="btn-approve" 
+                              onClick={() => handleApproveInterest(opportunity._id, packageInterest.sponsorId)}
+                            >
+                              <i className="fas fa-check"></i> Approve
+                            </button>
+                            <button 
+                              className="btn-reject" 
+                              onClick={() => handleRejectInterest(opportunity._id, packageInterest.sponsorId)}
+                            >
+                              <i className="fas fa-times"></i> Reject
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }) : []
                   )}
                 </tbody>
               </table>
@@ -360,19 +503,19 @@ function RegistrarDashboard() {
                           className="btn-view-details" 
                           onClick={() => handleViewEventDetails(opportunity)}
                         >
-                          View Details
+                          <i className="fas fa-eye"></i> Details
                         </button>
                         <button 
                           className="btn-approve" 
                           onClick={() => handleApproveEvent(opportunity._id)}
                         >
-                          Approve
+                          <i className="fas fa-check"></i> Approve
                         </button>
                         <button 
                           className="btn-reject" 
                           onClick={() => handleRejectEvent(opportunity._id)}
                         >
-                          Reject
+                          <i className="fas fa-times"></i> Reject
                         </button>
                       </td>
                     </tr>
@@ -419,7 +562,7 @@ function RegistrarDashboard() {
                           className="btn-approve" 
                           onClick={() => handleApproveUser(pendingUser._id)}
                         >
-                          Approve
+                          <i className="fas fa-check"></i> Approve
                         </button>
                       </td>
                     </tr>
@@ -429,6 +572,66 @@ function RegistrarDashboard() {
             ) : (
               <div className="no-requests">
                 <p>No pending user approval requests.</p>
+              </div>
+            )}
+          </div>
+        );
+      case 'sponsorshipApprovals':
+        return (
+          <div className="sponsorship-approvals">
+            <h2>Sponsorship Approval Requests</h2>
+            {loading ? (
+              <p>Loading sponsorship requests...</p>
+            ) : error ? (
+              <p className="error">{error}</p>
+            ) : pendingSponsorships.length > 0 ? (
+              <table className="interest-requests-table">
+                <thead>
+                  <tr>
+                    <th>Event Name</th>
+                    <th>Club</th>
+                    <th>Starting Price</th>
+                    <th>Date</th>
+                    <th>Contact Person</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingSponsorships.map(opportunity => (
+                    <tr key={opportunity._id}>
+                      <td>{opportunity.name}</td>
+                      <td>{opportunity.club}</td>
+                      <td>${opportunity.startingPrice}</td>
+                      <td>{new Date(opportunity.date).toLocaleDateString()}</td>
+                      <td>{opportunity.contactPerson}</td>
+                      <td>
+                        <button 
+                          className="btn-view-details" 
+                          onClick={() => handleViewEventDetails(opportunity)}
+                        >
+                          <i className="fas fa-eye"></i> Details
+                        </button>
+                        <button 
+                          className="btn-approve" 
+                          onClick={() => handleApproveSponsorshipRequest(opportunity._id)}
+                        >
+                          <i className="fas fa-check"></i> Approve
+                        </button>
+                        <button 
+                          className="btn-reject" 
+                          onClick={() => handleRejectSponsorshipRequest(opportunity._id)}
+                        >
+                          <i className="fas fa-times"></i> Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-requests">
+                <p>No pending sponsorship approval requests.</p>
+                <p>When clubs create sponsorship requests, they will appear here for your review.</p>
               </div>
             )}
           </div>
@@ -443,13 +646,6 @@ function RegistrarDashboard() {
       <div className="welcome-section">
         <h1>Welcome {user?.name}</h1>
         <p>Registrar Dashboard</p>
-      </div>
-
-      {/* Profile Button Section */}
-      <div className="dashboard-actions">
-        <Link to="/profile" className="profile-link">
-          <button type="button">View My Profile</button>
-        </Link>
       </div>
 
       <div className="dashboard-container">
@@ -473,7 +669,12 @@ function RegistrarDashboard() {
             >
               <i className="fas fa-users"></i> User Approvals
             </li>
-            {/* Add more menu items here as needed */}
+            <li
+              className={activeTab === 'sponsorshipApprovals' ? 'active' : ''}
+              onClick={() => setActiveTab('sponsorshipApprovals')}
+            >
+              <i className="fas fa-money-check-alt"></i> Sponsorship Approvals
+            </li>
           </ul>
         </div>
         <div className="main-content">{renderTabContent()}</div>
@@ -484,7 +685,11 @@ function RegistrarDashboard() {
         <div className="modal-overlay">
           <div className="request-details-modal">
             <div className="modal-header">
-              <h2>Interest Request Details</h2>
+              <h2>
+                {selectedRequest.type === 'event' ? 'Event Details' : 
+                 activeTab === 'sponsorshipApprovals' ? 'Sponsorship Request Details' : 
+                 'Interest Request Details'}
+              </h2>
               <button className="close-button" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
@@ -509,6 +714,67 @@ function RegistrarDashboard() {
                 <strong>Expected Attendance:</strong>
                 <p>{selectedRequest.opportunity.attendance}</p>
               </div>
+              
+              {/* Display the specific package the sponsor is interested in */}
+              {selectedRequest.packageIndex !== undefined && 
+               selectedRequest.opportunity.packages && 
+               selectedRequest.opportunity.packages[selectedRequest.packageIndex] && (
+                <>
+                  <h3>Selected Sponsorship Package</h3>
+                  <div className="selected-package-container">
+                    <div className="package-item selected-package">
+                      <h4>
+                        {selectedRequest.opportunity.packages[selectedRequest.packageIndex].name || 
+                         `Package ${selectedRequest.packageIndex + 1}`}
+                      </h4>
+                      <div className="package-detail">
+                        <strong>Price:</strong>
+                        <p>${selectedRequest.opportunity.packages[selectedRequest.packageIndex].price}</p>
+                      </div>
+                      <div className="package-detail">
+                        <strong>Benefits:</strong>
+                        <p>{Array.isArray(selectedRequest.opportunity.packages[selectedRequest.packageIndex].benefits) 
+                           ? selectedRequest.opportunity.packages[selectedRequest.packageIndex].benefits.join(', ') 
+                           : selectedRequest.opportunity.packages[selectedRequest.packageIndex].benefits || 'No benefits listed'}</p>
+                      </div>
+                      <div className="package-detail">
+                        <strong>Description:</strong>
+                        <p>{selectedRequest.opportunity.packages[selectedRequest.packageIndex].description || 'No description provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Display all packages if we're viewing sponsorship approvals or a package interest */}
+              {(activeTab === 'sponsorshipApprovals' || selectedRequest.packageIndex !== undefined) && 
+               selectedRequest.opportunity.packages && selectedRequest.opportunity.packages.length > 0 && (
+                <>
+                  <h3>{selectedRequest.packageIndex !== undefined ? 'All Available Packages' : 'Sponsorship Packages'}</h3>
+                  <div className="packages-container">
+                    {selectedRequest.opportunity.packages.map((pkg, index) => (
+                      <div 
+                        key={index} 
+                        className={`package-item ${selectedRequest.packageIndex === index ? 'selected-package' : ''}`}
+                      >
+                        <h4>{pkg.name || `Package ${index + 1}`}</h4>
+                        <div className="package-detail">
+                          <strong>Price:</strong>
+                          <p>${pkg.price}</p>
+                        </div>
+                        <div className="package-detail">
+                          <strong>Benefits:</strong>
+                          <p>{Array.isArray(pkg.benefits) ? pkg.benefits.join(', ') : pkg.benefits || 'No benefits listed'}</p>
+                        </div>
+                        <div className="package-detail">
+                          <strong>Description:</strong>
+                          <p>{pkg.description || 'No description provided'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               
               {selectedRequest.sponsor && (
                 <>
@@ -542,7 +808,7 @@ function RegistrarDashboard() {
                         selectedRequest.sponsor._id
                       )}
                     >
-                      Approve Request
+                      <i className="fas fa-check"></i> Approve Request
                     </button>
                     <button 
                       className="btn-reject" 
@@ -551,7 +817,22 @@ function RegistrarDashboard() {
                         selectedRequest.sponsor._id
                       )}
                     >
-                      Reject Request
+                      <i className="fas fa-times"></i> Reject Request
+                    </button>
+                  </>
+                ) : activeTab === 'sponsorshipApprovals' ? (
+                  <>
+                    <button 
+                      className="btn-approve" 
+                      onClick={() => handleApproveSponsorshipRequest(selectedRequest.opportunity._id)}
+                    >
+                      <i className="fas fa-check"></i> Approve Sponsorship
+                    </button>
+                    <button 
+                      className="btn-reject" 
+                      onClick={() => handleRejectSponsorshipRequest(selectedRequest.opportunity._id)}
+                    >
+                      <i className="fas fa-times"></i> Reject Sponsorship
                     </button>
                   </>
                 ) : (
@@ -560,17 +841,19 @@ function RegistrarDashboard() {
                       className="btn-approve" 
                       onClick={() => handleApproveEvent(selectedRequest.opportunity._id)}
                     >
-                      Approve Event
+                      <i className="fas fa-check"></i> Approve Event
                     </button>
                     <button 
                       className="btn-reject" 
                       onClick={() => handleRejectEvent(selectedRequest.opportunity._id)}
                     >
-                      Reject Event
+                      <i className="fas fa-times"></i> Reject Event
                     </button>
                   </>
                 )}
-                <button className="btn-view-details" onClick={closeModal}>Close</button>
+                <button className="btn-view-details" onClick={closeModal}>
+                  <i className="fas fa-times-circle"></i> Close
+                </button>
               </div>
             </div>
           </div>

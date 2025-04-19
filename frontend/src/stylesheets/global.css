@@ -1,0 +1,89 @@
+/* Global styles for a more eye-soothing, minimalistic look */
+:root {
+  /* Primary color palette - softer, muted tones */
+  --primary-light: #e8eaf6;
+  --primary: #5c6bc0;
+  --primary-dark: #3949ab;
+  
+  /* Neutral colors */
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --text-primary: #2c3e50;
+  --text-secondary: #546e7a;
+  
+  /* Accent colors - more subdued */
+  --accent-success: #66bb6a;
+  --accent-info: #4fc3f7;
+  --accent-warning: #ffca28;
+  --accent-danger: #ef5350;
+  
+  /* UI elements */
+  --border-color: #e0e6ed;
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --hover-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+/* Base styles */
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+/* Consistent card styling */
+.card {
+  background-color: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: var(--spacing-md);
+}
+
+/* Button styling */
+button {
+  border-radius: 4px;
+  font-weight: 500;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+}
+
+/* Form elements */
+input, select, textarea {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.2);
+}
+
+/* Table styling */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+th {
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+}

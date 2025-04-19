@@ -1,18 +1,42 @@
+.welcome-section .profile-link {
+  display: inline-block;
+  margin-top: 10px;
+}
 
+.profile-link button {
+  padding: 8px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+  
+.profile-link button:hover {
+  background-color: #45a049;
+}
+
+.header-profile-link {
+  margin-left: auto;
+  margin-right: 15px;
+}
+
+.header .profile-link button {
+  padding: 8px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+  
+.header .profile-link button:hover {
+  background-color: #45a049;
+}
+
+/* We can remove this since we moved the button to the welcome section */
 .dashboard-actions {
-    margin-top: 20px;
-  }
-  
-  .profile-link button {
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-  }
-  
-  .profile-link button:hover {
-    background-color: #45a049;
-  }
+  display: none;
+}

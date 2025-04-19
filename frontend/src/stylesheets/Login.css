@@ -15,7 +15,7 @@ html, body {
 .user-register-bg {
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(180deg, #5636A7 14.5%, #3E2C6B 58%, #1E1E1E 100%);
+    background: linear-gradient(180deg, var(--primary) 10%, var(--primary-dark) 60%, #2c3e50 100%);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -29,7 +29,7 @@ html, body {
     height: auto;
     flex-shrink: 0;
     border-radius: 56px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(17.5px);
     display: flex;
     justify-content: center;
