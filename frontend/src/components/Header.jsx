@@ -1,58 +1,69 @@
-import React from 'react'
-
-import { FaSignInAlt, FaSignOutAlt, FaUser} from 'react-icons/fa'
-
-import { Link, useNavigate } from 'react-router-dom'
-
-import { useSelector, useDispatch } from 'react-redux'
-import { logout, reset } from '../features/auth/authSlice'
+import React from 'react';
+import { FaSignInAlt, FaSignOutAlt, FaUser } from 'react-icons/fa';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout, reset } from '../features/auth/authSlice';
+import '../stylesheets/Header.css'; // Import the new stylesheet
+import '../stylesheets/ViewMyProfile.css'; // Import the ViewMyProfile stylesheet
 
 function Header() {
-    const navigate = useNavigate()
-    const dispatch = useDispatch()
-    const { user } = useSelector((state) => state.auth)
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
 
-    const onLogout = () => {
-        dispatch(logout())
-        dispatch(reset())
-        navigate('/login')
-    }
+  const onLogout = () => {
+    dispatch(logout());
+    dispatch(reset());
+    navigate('/login');
+  };
 
-
-    return (
-        <header className='header'>
-          <div className="logo">
-            <Link to='/'>GoalStter</Link>
-          </div>
-          <ul>
+  return (
+    <header className="header">
+      <div className="header-container">
+        <div className="logo">
+          <Link to="/">Club Event System</Link>
+        </div>
+        <nav>
+          <ul className="nav-links">
             {user ? (
-              <li>
-                <button className='btn' onClick={onLogout}>
-                  <FaSignOutAlt /> Logout
-                </button>
-              </li>
+              <>
+                <li>
+                  <button className="btn logout-btn" onClick={onLogout}>
+                    <FaSignOutAlt /> Logout
+                  </button>
+                </li>
+                <li>
+                  <div className="header-profile-link">
+                    <Link to="/profile" className="profile-link">
+                      <button type="button">View My Profile</button>
+                    </Link>
+                  </div>
+                </li>
+              </>
             ) : (
               <>
                 <li>
-                  <Link to='/login'>
+                  <Link to="/login" className="nav-link">
                     <FaSignInAlt /> Login
                   </Link>
                 </li>
                 <li>
-                  <Link to='/user/register'>
+                  <Link to="/user/register" className="nav-link">
                     <FaUser /> Register
                   </Link>
                 </li>
                 <li>
-                  <Link to='/sponsor/register'>
+                  <Link to="/sponsor/register" className="nav-link">
                     <FaUser /> Sponsor Register
                   </Link>
                 </li>
               </>
             )}
           </ul>
-        </header>
-      )
+        </nav>
+      </div>
+    </header>
+  );
 }
 
-export default Header
+export default Header;

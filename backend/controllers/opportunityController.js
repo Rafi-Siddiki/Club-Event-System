@@ -52,7 +52,10 @@ const createOpportunity = asyncHandler(async (req, res) => {
         contactEmail
     } = req.body;
 
-    if (!name || !description || !date || !club || !attendance || !startingPrice || !location || !packages || !contactPerson || !contactEmail) {
+    // Check if packages is undefined or null, but allow empty array
+    if (!name || !description || !date || !club || !attendance || 
+        startingPrice === undefined || !location || packages === undefined || 
+        !contactPerson || !contactEmail) {
         res.status(400);
         throw new Error('Please fill all required fields');
     }
@@ -120,13 +123,49 @@ const expressInterest = asyncHandler(async (req, res) => {
         throw new Error('Opportunity not found');
     }
 
-    // Check if user is already interested
-    if (opportunity.interestedSponsors.includes(req.user.id)) {
-        res.status(400);
-        throw new Error('You have already expressed interest in this opportunity');
+    // Check if packageIndex is provided
+    const { packageIndex } = req.body;
+    
+    // If packageIndex is provided, validate it
+    if (packageIndex !== undefined) {
+        if (!opportunity.packages || packageIndex >= opportunity.packages.length) {
+            res.status(400);
+            throw new Error('Invalid package selected');
+        }
+        
+        // Store the package interest in a new array
+        if (!opportunity.interestedPackages) {
+            opportunity.interestedPackages = [];
+        }
+        
+        // Check if already interested in this specific package
+        const alreadyInterested = opportunity.interestedPackages.some(
+            item => item.sponsorId.toString() === req.user.id && 
+                   item.packageIndex === packageIndex
+        );
+        
+        if (alreadyInterested) {
+            res.status(400);
+            throw new Error('You have already expressed interest in this package');
+        }
+        
+        // Add package interest
+        opportunity.interestedPackages.push({
+            sponsorId: req.user.id,
+            packageIndex,
+            expressedAt: Date.now()
+        });
+    } else {
+        // For backward compatibility - interest in the whole opportunity
+        // Check if user is already interested
+        if (opportunity.interestedSponsors.includes(req.user.id)) {
+            res.status(400);
+            throw new Error('You have already expressed interest in this opportunity');
+        }
+        
+        opportunity.interestedSponsors.push(req.user.id);
     }
 
-    opportunity.interestedSponsors.push(req.user.id);
     await opportunity.save();
 
     res.status(200).json(opportunity);
@@ -217,6 +256,232 @@ const rejectInterest = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Approve opportunity for general display
+// @route   PUT /api/opportunities/:id/approve
+// @access  Private (Registrar only)
+const approveOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can approve opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with approval details
+    opportunity.generalApproval = {
+        status: 'approved',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event approved'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been approved',
+        opportunity
+    });
+});
+
+// @desc    Reject opportunity for general display
+// @route   PUT /api/opportunities/:id/reject
+// @access  Private (Registrar only)
+const rejectOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can reject opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with rejection details
+    opportunity.generalApproval = {
+        status: 'rejected',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event rejected'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been rejected',
+        opportunity
+    });
+});
+
+// @desc    Approve sponsorship request
+// @route   PUT /api/opportunities/:id/sponsorship/approve
+// @access  Private (Registrar only)
+const approveSponsorshipRequest = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can approve sponsorship requests');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with approval details
+    opportunity.sponsorshipRequestApproval = {
+        status: 'approved',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Sponsorship request approved'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Sponsorship request has been approved',
+        opportunity
+    });
+});
+
+// @desc    Reject sponsorship request
+// @route   PUT /api/opportunities/:id/sponsorship/reject
+// @access  Private (Registrar only)
+const rejectSponsorshipRequest = asyncHandler(async (req, res) => {
+    // Check if user is a registrar
+    if (req.user.role !== 'registrar') {
+        res.status(403);
+        throw new Error('Unauthorized. Only registrars can reject sponsorship requests');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with rejection details
+    opportunity.sponsorshipRequestApproval = {
+        status: 'rejected',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Sponsorship request rejected'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Sponsorship request has been rejected',
+        opportunity
+    });
+});
+
+// @desc    Mark user as attending an event
+// @route   POST /api/opportunities/:id/attend
+// @access  Private
+const attendEvent = asyncHandler(async (req, res) => {
+    const opportunity = await Opportunity.findById(req.params.id);
+
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Event not found');
+    }
+
+    // Check if event is approved
+    if (opportunity.generalApproval.status !== 'approved') {
+        res.status(400);
+        throw new Error('This event is not currently approved for attendance');
+    }
+
+    // Check if user is already attending
+    if (opportunity.attendingUsers.includes(req.user.id)) {
+        res.status(400);
+        throw new Error('You are already attending this event');
+    }
+
+    opportunity.attendingUsers.push(req.user.id);
+    await opportunity.save();
+
+    res.status(200).json(opportunity);
+});
+
+// @desc    Remove user from attending an event
+// @route   DELETE /api/opportunities/:id/attend
+// @access  Private
+const cancelAttendance = asyncHandler(async (req, res) => {
+    const opportunity = await Opportunity.findById(req.params.id);
+
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Event not found');
+    }
+
+    // Check if user is actually attending
+    if (!opportunity.attendingUsers.includes(req.user.id)) {
+        res.status(400);
+        throw new Error('You are not attending this event');
+    }
+
+    // Remove user from attending users list
+    opportunity.attendingUsers = opportunity.attendingUsers.filter(
+        id => id.toString() !== req.user.id.toString()
+    );
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'You have cancelled your attendance',
+        opportunity
+    });
+});
+
+// @desc    Get events user is attending
+// @route   GET /api/opportunities/attending
+// @access  Private
+const getAttendingEvents = asyncHandler(async (req, res) => {
+    const attendingEvents = await Opportunity.find({
+        attendingUsers: req.user.id,
+        'generalApproval.status': 'approved'
+    });
+
+    res.status(200).json(attendingEvents);
+});
+
+// @desc    Get opportunities/packages that the user is interested in
+// @route   GET /api/opportunities/interested-packages
+// @access  Private
+const getInterestedPackages = asyncHandler(async (req, res) => {
+    const opportunities = await Opportunity.find({
+        'interestedPackages.sponsorId': req.user.id
+    });
+    
+    const interestedPackages = [];
+    
+    opportunities.forEach(opportunity => {
+        const userInterests = opportunity.interestedPackages.filter(
+            item => item.sponsorId.toString() === req.user.id
+        );
+        
+        userInterests.forEach(interest => {
+            interestedPackages.push({
+                opportunityId: opportunity._id,
+                packageIndex: interest.packageIndex,
+                expressedAt: interest.expressedAt
+            });
+        });
+    });
+    
+    res.status(200).json(interestedPackages);
+});
+
 module.exports = {
     getOpportunities,
     getOpportunityById,
@@ -225,5 +490,13 @@ module.exports = {
     deleteOpportunity,
     expressInterest,
     approveInterest,
-    rejectInterest
+    rejectInterest,
+    approveOpportunity,
+    rejectOpportunity,
+    attendEvent,
+    cancelAttendance,
+    getAttendingEvents,
+    approveSponsorshipRequest,
+    rejectSponsorshipRequest,
+    getInterestedPackages
 };

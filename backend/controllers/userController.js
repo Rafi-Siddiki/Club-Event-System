@@ -203,11 +203,20 @@ const approveUser = asyncHandler(async (req, res) => {
     res.status(200).json({ message: 'User approved successfully' });
 });
 
+// @desc Get all users
+// @route GET /api/users
+// @access Private
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find({}).select('-password');
+    res.status(200).json(users);
+});
+
 module.exports = {
     registerUser,
     registerSponsor,
     loginUser,
     getMe,
     getUserById,
-    approveUser
+    approveUser,
+    getAllUsers
 };
