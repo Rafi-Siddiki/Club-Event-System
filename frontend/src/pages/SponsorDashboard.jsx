@@ -15,6 +15,7 @@ function SponsorDashboard() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [interestedPackages, setInterestedPackages] = useState([]);
 
   useEffect(() => {
     // Set page title
@@ -46,6 +47,18 @@ function SponsorDashboard() {
         },
       });
       setOpportunities(response.data);
+      
+      // Fetch the user's interested packages
+      const interestResponse = await axios.get('/api/opportunities/interested-packages', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      
+      if (interestResponse.data) {
+        setInterestedPackages(interestResponse.data);
+      }
+      
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch funding opportunities');
@@ -83,15 +96,49 @@ function SponsorDashboard() {
     }
   };
 
+  // Handle expressing interest in a specific package
+  const handleExpressInterestInPackage = async (opportunityId, packageIndex) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.post(`/api/opportunities/${opportunityId}/interest`, { 
+        packageIndex 
+      }, config);
+      
+      // Update local state to immediately reflect the interest
+      setInterestedPackages([
+        ...interestedPackages,
+        { opportunityId, packageIndex }
+      ]);
+      
+      toast.success('Interest expressed in this sponsorship package. Your request will be reviewed by a registrar.');
+      
+      // Refresh the opportunities list
+      fetchOpportunities();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to express interest in package';
+      toast.error(errorMessage);
+    }
+  };
+
   // Check if user has already expressed interest
   const hasExpressedInterest = (opportunity) => {
-    // First check if user exists and has _id property
-    // Then check if interestedSponsors exists and is an array before calling includes
     return user && 
            user._id && 
            opportunity.interestedSponsors && 
            Array.isArray(opportunity.interestedSponsors) && 
            opportunity.interestedSponsors.includes(user._id);
+  };
+
+  // Check if user has expressed interest in a specific package
+  const hasExpressedInterestInPackage = (opportunityId, packageIndex) => {
+    return interestedPackages.some(
+      item => item.opportunityId === opportunityId && item.packageIndex === packageIndex
+    );
   };
 
   const renderTabContent = () => {
@@ -158,13 +205,6 @@ function SponsorDashboard() {
         <p>Sponsor Dashboard</p>
       </div>
 
-      {/* Profile Button Section */}
-      <div className="dashboard-actions">
-        <Link to="/profile" className="profile-link">
-          <button type="button">View My Profile</button>
-        </Link>
-      </div>
-
       <div className="dashboard-container">
         <div className="sidebar">
           <ul>
@@ -223,27 +263,52 @@ function SponsorDashboard() {
                   <p>{selectedOpportunity.status}</p>
                 </div>
               </div>
-              {selectedOpportunity.additionalDetails && (
-                <div className="event-detail-item">
-                  <strong>Additional Details:</strong>
-                  <p>{selectedOpportunity.additionalDetails}</p>
+              
+              {/* Display available sponsorship packages */}
+              {selectedOpportunity.packages && selectedOpportunity.packages.length > 0 ? (
+                <>
+                  <h3>Sponsorship Packages</h3>
+                  <div className="packages-container">
+                    {selectedOpportunity.packages.map((pkg, index) => (
+                      <div key={index} className="package-item">
+                        <h4>{pkg.name || `Package ${index + 1}`}</h4>
+                        <div className="package-detail">
+                          <strong>Price:</strong>
+                          <p>${pkg.price}</p>
+                        </div>
+                        <div className="package-detail">
+                          <strong>Benefits:</strong>
+                          <ul>
+                            {pkg.benefits && Array.isArray(pkg.benefits) ? 
+                              pkg.benefits.map((benefit, i) => (
+                                <li key={i}>{benefit}</li>
+                              )) : 
+                              <li>No benefits listed</li>
+                            }
+                          </ul>
+                        </div>
+                        <button 
+                          className={hasExpressedInterestInPackage(selectedOpportunity._id, index) ? "btn-disabled" : "btn-approve"}
+                          onClick={() => handleExpressInterestInPackage(selectedOpportunity._id, index)}
+                          disabled={hasExpressedInterestInPackage(selectedOpportunity._id, index)}
+                        >
+                          {hasExpressedInterestInPackage(selectedOpportunity._id, index) ? 
+                            "Interest Expressed" : 
+                            "Express Interest"
+                          }
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="no-packages">
+                  <p>No sponsorship packages are available for this event.</p>
                 </div>
               )}
+              
               <div className="modal-actions">
-                <button className="btn-approve" onClick={closeModal}>Close</button>
-                {hasExpressedInterest(selectedOpportunity) ? (
-                  <button className="btn-disabled" disabled>Interest Expressed</button>
-                ) : (
-                  <button 
-                    className="btn-approve" 
-                    onClick={() => {
-                      handleExpressInterest(selectedOpportunity._id);
-                      closeModal();
-                    }}
-                  >
-                    Express Interest
-                  </button>
-                )}
+                <button className="btn-view" onClick={closeModal}>Close</button>
               </div>
             </div>
           </div>

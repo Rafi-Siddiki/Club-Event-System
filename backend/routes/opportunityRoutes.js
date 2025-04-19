@@ -13,13 +13,17 @@ const {
     rejectOpportunity,
     attendEvent,
     cancelAttendance,
-    getAttendingEvents
+    getAttendingEvents,
+    approveSponsorshipRequest,
+    rejectSponsorshipRequest,
+    getInterestedPackages
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/customMiddleware');
 
 // Add this route before your other opportunity routes
 router.get('/attending', protect, getAttendingEvents);
+router.get('/interested-packages', protect, getInterestedPackages);
 
 // Routes for opportunities
 router.get('/', protect, getOpportunities);
@@ -40,5 +44,9 @@ router.delete('/:id/attend', protect, cancelAttendance);
 // Routes for approving/rejecting interest
 router.put('/:id/interest/:sponsorId/approve', protect, authorizeRoles('registrar'), approveInterest);
 router.put('/:id/interest/:sponsorId/reject', protect, authorizeRoles('registrar'), rejectInterest);
+
+// Routes for sponsorship request approval
+router.put('/:id/sponsorship/approve', protect, authorizeRoles('registrar'), approveSponsorshipRequest);
+router.put('/:id/sponsorship/reject', protect, authorizeRoles('registrar'), rejectSponsorshipRequest);
 
 module.exports = router;

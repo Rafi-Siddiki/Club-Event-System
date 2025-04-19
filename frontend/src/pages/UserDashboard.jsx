@@ -248,13 +248,6 @@ function UserDashboard() {
         <p>User Dashboard</p>
       </div>
 
-      {/* Profile Button Section */}
-      <div className="dashboard-actions">
-        <Link to="/profile" className="profile-link">
-          <button type="button">View My Profile</button>
-        </Link>
-      </div>
-
       <div className="dashboard-container">
         <div className="sidebar">
           <ul>

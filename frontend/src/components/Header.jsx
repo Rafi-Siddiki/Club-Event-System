@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout, reset } from '../features/auth/authSlice';
 import '../stylesheets/Header.css'; // Import the new stylesheet
+import '../stylesheets/ViewMyProfile.css'; // Import the ViewMyProfile stylesheet
 
 function Header() {
   const navigate = useNavigate();
@@ -25,11 +26,20 @@ function Header() {
         <nav>
           <ul className="nav-links">
             {user ? (
-              <li>
-                <button className="btn logout-btn" onClick={onLogout}>
-                  <FaSignOutAlt /> Logout
-                </button>
-              </li>
+              <>
+                <li>
+                  <button className="btn logout-btn" onClick={onLogout}>
+                    <FaSignOutAlt /> Logout
+                  </button>
+                </li>
+                <li>
+                  <div className="header-profile-link">
+                    <Link to="/profile" className="profile-link">
+                      <button type="button">View My Profile</button>
+                    </Link>
+                  </div>
+                </li>
+              </>
             ) : (
               <>
                 <li>
