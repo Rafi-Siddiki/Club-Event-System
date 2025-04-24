@@ -49,6 +49,7 @@ function PanelDashboard() {
   const [selectedEventId, setSelectedEventId] = useState('');
   const [loadingApprovedEvents, setLoadingApprovedEvents] = useState(false);
   const [approvedEventsError, setApprovedEventsError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all'); // Add this line
   
   const { user } = useSelector((state) => state.auth)
 
@@ -460,6 +461,40 @@ function PanelDashboard() {
     }
   };
 
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status);
+  };
+
+  const getFilteredEvents = () => {
+    if (statusFilter === 'all') {
+      return approvedEvents;
+    }
+    
+    return approvedEvents.filter(event => {
+      const isPublished = 
+        event.publicationStatus && 
+        event.publicationStatus.status === 'published';
+      
+      const hasPendingSponsorshipRequest = 
+        event.sponsorshipRequestApproval && 
+        event.sponsorshipRequestApproval.status === 'pending';
+      
+      if (statusFilter === 'published' && isPublished) {
+        return true;
+      }
+      
+      if (statusFilter === 'pending' && hasPendingSponsorshipRequest) {
+        return true;
+      }
+      
+      if (statusFilter === 'ready' && !isPublished && !hasPendingSponsorshipRequest) {
+        return true;
+      }
+      
+      return false;
+    });
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'fundingProposals':
@@ -792,6 +827,22 @@ function PanelDashboard() {
         return (
           <div className="approved-events">
             <h2>Approved Events</h2>
+            
+            {/* Add status filter dropdown */}
+            <div className="filter-controls">
+              <label>Filter by Status: </label>
+              <select 
+                onChange={(e) => handleStatusFilter(e.target.value)}
+                value={statusFilter}
+                className="status-filter"
+              >
+                <option value="all">All Statuses</option>
+                <option value="ready">Ready to Publish</option>
+                <option value="pending">Awaiting Sponsorship Approval</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+            
             {loadingApprovedEvents ? (
               <p className="panel-loading">Loading approved events...</p>
             ) : approvedEventsError ? (
@@ -809,67 +860,73 @@ function PanelDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {approvedEvents.map(event => {
-                    // Determine event status and whether publish button should be enabled
-                    const hasPendingSponsorshipRequest = 
-                      event.sponsorshipRequestApproval && 
-                      event.sponsorshipRequestApproval.status === 'pending';
-                    
-                    const isPublished = 
-                      event.publicationStatus && 
-                      event.publicationStatus.status === 'published';
-                    
-                    let statusText = 'Ready to Publish';
-                    let statusClass = 'status-approved';
-                    
-                    if (isPublished) {
-                      statusText = 'Published';
-                      statusClass = 'status-published';
-                    } else if (hasPendingSponsorshipRequest) {
-                      statusText = 'Awaiting Sponsorship Approval';
-                      statusClass = 'status-pending';
-                    }
-                    
-                    return (
-                      <tr key={event._id}>
-                        <td>{event.name}</td>
-                        <td>{event.club}</td>
-                        <td>{new Date(event.date).toLocaleDateString()}</td>
-                        <td>{event.location}</td>
-                        <td>
-                          <span className={`status-badge ${statusClass}`}>
-                            {statusText}
-                          </span>
-                        </td>
-                        <td>
-                          {isPublished ? (
-                            <button className="btn-disabled" disabled>
-                              <i className="fas fa-check"></i> Published
-                            </button>
-                          ) : hasPendingSponsorshipRequest ? (
-                            <button className="btn-disabled" disabled>
-                              <i className="fas fa-clock"></i> Awaiting Approval
-                            </button>
-                          ) : (
-                            <button 
-                              className="btn-approve" 
-                              onClick={() => handlePublishEvent(event._id)}
-                            >
-                              <i className="fas fa-check"></i> Publish
-                            </button>
-                          )}
-                          {!isPublished && !hasPendingSponsorshipRequest && (
-                            <button 
-                              className="btn-reject" 
-                              onClick={() => handlePostponeEvent(event._id)}
-                            >
-                              <i className="fas fa-pause"></i> Postpone
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {getFilteredEvents().length > 0 ? (
+                    getFilteredEvents().map(event => {
+                      // Determine event status and whether publish button should be enabled
+                      const hasPendingSponsorshipRequest = 
+                        event.sponsorshipRequestApproval && 
+                        event.sponsorshipRequestApproval.status === 'pending';
+                      
+                      const isPublished = 
+                        event.publicationStatus && 
+                        event.publicationStatus.status === 'published';
+                      
+                      let statusText = 'Ready to Publish';
+                      let statusClass = 'status-approved';
+                      
+                      if (isPublished) {
+                        statusText = 'Published';
+                        statusClass = 'status-published';
+                      } else if (hasPendingSponsorshipRequest) {
+                        statusText = 'Awaiting Sponsorship Approval';
+                        statusClass = 'status-pending';
+                      }
+                      
+                      return (
+                        <tr key={event._id}>
+                          <td>{event.name}</td>
+                          <td>{event.club}</td>
+                          <td>{new Date(event.date).toLocaleDateString()}</td>
+                          <td>{event.location}</td>
+                          <td>
+                            <span className={`status-badge ${statusClass}`}>
+                              {statusText}
+                            </span>
+                          </td>
+                          <td>
+                            {isPublished ? (
+                              <button className="btn-disabled" disabled>
+                                <i className="fas fa-check"></i> Published
+                              </button>
+                            ) : hasPendingSponsorshipRequest ? (
+                              <button className="btn-disabled" disabled>
+                                <i className="fas fa-clock"></i> Awaiting Approval
+                              </button>
+                            ) : (
+                              <button 
+                                className="btn-approve" 
+                                onClick={() => handlePublishEvent(event._id)}
+                              >
+                                <i className="fas fa-check"></i> Publish
+                              </button>
+                            )}
+                            {!isPublished && !hasPendingSponsorshipRequest && (
+                              <button 
+                                className="btn-reject" 
+                                onClick={() => handlePostponeEvent(event._id)}
+                              >
+                                <i className="fas fa-pause"></i> Postpone
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-results">No events match this filter.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             ) : (
