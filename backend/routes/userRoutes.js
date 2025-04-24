@@ -9,7 +9,8 @@ const {
     getMe,
     getUserById,
     approveUser,
-    getAllUsers
+    getAllUsers,
+    updateUser
 } = require('../controllers/userController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -28,5 +29,8 @@ router.get('/:id', protect, authorizeRoles('registrar', 'admin'), getUserById);
 
 // Approval - only panel/registrar can approve users
 router.put('/approve/:id', protect, authorizeRoles('panel', 'registrar'), approveUser);
+
+// Update user profile - accessible by registrar or the user themselves
+router.put('/:id', protect, updateUser);
 
 module.exports = router;

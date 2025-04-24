@@ -189,19 +189,139 @@ const approveInterest = asyncHandler(async (req, res) => {
 
     const sponsorId = req.params.sponsorId;
     
-    // Check if sponsor has expressed interest
-    if (!opportunity.interestedSponsors.includes(sponsorId)) {
+    // Check if sponsor has expressed general interest
+    const hasGeneralInterest = opportunity.interestedSponsors && opportunity.interestedSponsors.includes(sponsorId);
+    
+    // Check if sponsor has expressed package-specific interest
+    const packageInterests = opportunity.interestedPackages && 
+                              opportunity.interestedPackages.filter(pkg => pkg.sponsorId.toString() === sponsorId);
+    const hasPackageInterest = packageInterests && packageInterests.length > 0;
+    
+    // If no interest found in either array, return error
+    if (!hasGeneralInterest && !hasPackageInterest) {
         res.status(404);
         throw new Error('This sponsor has not expressed interest in this opportunity');
     }
 
-    // Update the opportunity with approval details
-    opportunity.sponsorshipRequestApproval = {
-        status: 'approved',
-        updatedBy: req.user.id,
-        updatedAt: Date.now(),
-        comments: req.body.comments || 'Interest request approved'
-    };
+    // Update the approval status for this specific sponsor
+    if (hasGeneralInterest) {
+        // For general interest, update the sponsorshipContributionApproval field
+        opportunity.sponsorshipContributionApproval = {
+            status: 'approved',
+            updatedBy: req.user.id,
+            updatedAt: Date.now(),
+            comments: req.body.comments || 'Sponsor contribution approved',
+            approvedSponsorId: sponsorId // Track which sponsor was approved
+        };
+        
+        // Remove sponsor from interested sponsors list
+        opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
+            id => id.toString() !== sponsorId
+        );
+
+        // When a general request is approved, we need to:
+        // 1. Find all other sponsors who have expressed interest in this proposal (either general or package-specific)
+        const otherGeneralSponsors = opportunity.interestedSponsors || [];
+        const otherPackageSponsors = opportunity.interestedPackages 
+                                    ? [...new Set(opportunity.interestedPackages.map(pkg => pkg.sponsorId.toString()))]
+                                    : [];
+        
+        // Get unique list of all other interested sponsors
+        const allOtherSponsors = [...new Set([...otherGeneralSponsors.map(id => id.toString()), ...otherPackageSponsors])];
+        
+        console.log(`Found ${allOtherSponsors.length} other sponsors with interest in this proposal`);
+        
+        // 2. If rejected sponsors notifications tracking doesn't exist, create it
+        if (!opportunity.rejectedSponsorsNotifications) {
+            opportunity.rejectedSponsorsNotifications = [];
+        }
+        
+        // 3. Create rejection notifications for all other sponsors
+        allOtherSponsors.forEach(rejectedId => {
+            if (rejectedId !== sponsorId) { // Avoid creating rejection for the approved sponsor
+                opportunity.rejectedSponsorsNotifications.push({
+                    sponsorId: rejectedId,
+                    packageIndex: -1, // Use -1 to indicate general proposal rejection
+                    reason: 'Another sponsor was selected for this entire proposal',
+                    createdAt: Date.now(),
+                    read: false
+                });
+            }
+        });
+        
+        // 4. Clear all interest in this opportunity (both general and package-specific)
+        opportunity.interestedSponsors = []; // Clear all general interest
+        opportunity.interestedPackages = []; // Clear all package interest
+        
+        // 5. Mark all packages as taken by creating approved package entries for this sponsor
+        if (opportunity.packages && opportunity.packages.length > 0) {
+            // If approved package sponsors tracking doesn't exist, create it
+            if (!opportunity.approvedPackageSponsors) {
+                opportunity.approvedPackageSponsors = [];
+            }
+            
+            // Add entries for each package showing this sponsor was approved for all
+            for (let i = 0; i < opportunity.packages.length; i++) {
+                opportunity.approvedPackageSponsors.push({
+                    packageIndex: i,
+                    sponsorId,
+                    approvedAt: Date.now(),
+                    approvedBy: req.user.id
+                });
+            }
+        }
+        
+    } else if (hasPackageInterest) {
+        // For package-specific interest, we need to:
+        // 1. Get the package index that this sponsor was interested in
+        const approvedPackageInterest = packageInterests[0]; // Get the first one if multiple
+        const packageIndex = approvedPackageInterest.packageIndex;
+        
+        // 2. Find all other sponsors interested in the same package
+        const otherSponsorsForSamePackage = opportunity.interestedPackages.filter(
+            pkg => pkg.packageIndex === packageIndex && pkg.sponsorId.toString() !== sponsorId
+        );
+        
+        // 3. Store the list of rejected sponsor IDs for notification (not implemented here)
+        const rejectedSponsorIds = otherSponsorsForSamePackage.map(pkg => pkg.sponsorId);
+        
+        // 4. If package approved sponsors tracking doesn't exist, create it
+        if (!opportunity.approvedPackageSponsors) {
+            opportunity.approvedPackageSponsors = [];
+        }
+        
+        // 5. Record which sponsor was approved for this specific package
+        opportunity.approvedPackageSponsors.push({
+            packageIndex,
+            sponsorId,
+            approvedAt: Date.now(),
+            approvedBy: req.user.id
+        });
+        
+        // 6. Remove all interests for this specific package (including the approved one)
+        opportunity.interestedPackages = opportunity.interestedPackages.filter(
+            pkg => pkg.packageIndex !== packageIndex
+        );
+        
+        // 7. Log (for debugging) - can be removed in production
+        console.log(`Approved sponsor ${sponsorId} for package ${packageIndex}`);
+        console.log(`Automatically rejected sponsors: ${rejectedSponsorIds.join(', ')}`);
+        
+        // 8. Add notification entries for rejected sponsors
+        if (!opportunity.rejectedSponsorsNotifications) {
+            opportunity.rejectedSponsorsNotifications = [];
+        }
+        
+        rejectedSponsorIds.forEach(rejectedId => {
+            opportunity.rejectedSponsorsNotifications.push({
+                sponsorId: rejectedId,
+                packageIndex,
+                reason: 'Another sponsor was selected for this package',
+                createdAt: Date.now(),
+                read: false
+            });
+        });
+    }
 
     await opportunity.save();
 
@@ -229,24 +349,66 @@ const rejectInterest = asyncHandler(async (req, res) => {
 
     const sponsorId = req.params.sponsorId;
     
-    // Check if sponsor has expressed interest
-    if (!opportunity.interestedSponsors.includes(sponsorId)) {
+    // Check if sponsor has expressed general interest
+    const hasGeneralInterest = opportunity.interestedSponsors && opportunity.interestedSponsors.includes(sponsorId);
+    
+    // Check if sponsor has expressed package-specific interest
+    const packageInterests = opportunity.interestedPackages && 
+                              opportunity.interestedPackages.filter(pkg => pkg.sponsorId.toString() === sponsorId);
+    const hasPackageInterest = packageInterests && packageInterests.length > 0;
+    
+    // If no interest found in either array, return error
+    if (!hasGeneralInterest && !hasPackageInterest) {
         res.status(404);
         throw new Error('This sponsor has not expressed interest in this opportunity');
     }
 
-    // Update the opportunity with rejection details
-    opportunity.sponsorshipRequestApproval = {
-        status: 'rejected',
-        updatedBy: req.user.id,
-        updatedAt: Date.now(),
-        comments: req.body.comments || 'Interest request rejected'
-    };
-
-    // Remove sponsor from interested sponsors list
-    opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
-        id => id.toString() !== sponsorId
-    );
+    // Update the approval status for this specific sponsor
+    if (hasGeneralInterest) {
+        // For general interest, update the sponsorshipContributionApproval field
+        // and remove from interestedSponsors array
+        opportunity.sponsorshipContributionApproval = {
+            status: 'declined',
+            updatedBy: req.user.id,
+            updatedAt: Date.now(),
+            comments: req.body.comments || 'Sponsor contribution declined',
+            rejectedSponsorId: sponsorId // Track which sponsor was rejected
+        };
+        
+        // Remove sponsor from interested sponsors list
+        opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
+            id => id.toString() !== sponsorId
+        );
+    } else if (hasPackageInterest) {
+        // For package-specific interest, we need to:
+        // 1. Get the package indices that this sponsor was interested in
+        const packageIndices = packageInterests.map(pkg => pkg.packageIndex);
+        
+        // 2. If rejected sponsors notifications tracking doesn't exist, create it
+        if (!opportunity.rejectedSponsorsNotifications) {
+            opportunity.rejectedSponsorsNotifications = [];
+        }
+        
+        // 3. Record which sponsor was rejected for each specific package
+        packageIndices.forEach(packageIndex => {
+            opportunity.rejectedSponsorsNotifications.push({
+                packageIndex,
+                sponsorId,
+                rejectedAt: Date.now(),
+                rejectedBy: req.user.id,
+                reason: 'Interest request rejected by registrar',
+                read: false
+            });
+        });
+        
+        // 4. Remove the sponsor's interest from interested packages array
+        opportunity.interestedPackages = opportunity.interestedPackages.filter(
+            pkg => pkg.sponsorId.toString() !== sponsorId
+        );
+        
+        // 5. Log (for debugging) - can be removed in production
+        console.log(`Rejected sponsor ${sponsorId} for packages: ${packageIndices.join(', ')}`);
+    }
 
     await opportunity.save();
 
@@ -336,6 +498,38 @@ const approveSponsorshipRequest = asyncHandler(async (req, res) => {
         throw new Error('Opportunity not found');
     }
 
+    // Get the package fund allocations from the request body
+    const { allocations } = req.body;
+
+    // If allocations for packages are provided, validate and update them
+    if (allocations && Array.isArray(allocations)) {
+        // Validate each allocation
+        for (let i = 0; i < allocations.length; i++) {
+            const { packageIndex, amount } = allocations[i];
+            
+            // Check if package index is valid
+            if (packageIndex < 0 || packageIndex >= opportunity.packages.length) {
+                res.status(400);
+                throw new Error(`Invalid package index: ${packageIndex}`);
+            }
+            
+            // Check if allocated amount is valid
+            if (amount < 0) {
+                res.status(400);
+                throw new Error('Allocated funds cannot be negative');
+            }
+            
+            const packagePrice = opportunity.packages[packageIndex].price;
+            if (amount > packagePrice) {
+                res.status(400);
+                throw new Error(`Allocated funds cannot exceed package price of $${packagePrice}`);
+            }
+            
+            // Update the package's registrarFunds
+            opportunity.packages[packageIndex].registrarFunds = amount;
+        }
+    }
+
     // Update the opportunity with approval details
     opportunity.sponsorshipRequestApproval = {
         status: 'approved',
@@ -347,7 +541,7 @@ const approveSponsorshipRequest = asyncHandler(async (req, res) => {
     await opportunity.save();
 
     res.status(200).json({
-        message: 'Sponsorship request has been approved',
+        message: 'Sponsorship request has been approved with allocated funds',
         opportunity
     });
 });
