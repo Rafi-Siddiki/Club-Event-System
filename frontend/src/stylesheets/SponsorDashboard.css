@@ -377,6 +377,166 @@
   margin-bottom: 15px;
 }
 
+/* Package funding allocation styling */
+.package-funding-allocation {
+  margin: 15px 0;
+  border-left: 3px solid #4b6cb7;
+  padding-left: 12px;
+}
+
+.package-fund-detail {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.package-fund-detail strong {
+  font-weight: 600;
+}
+
+.package-fund-detail span {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.package-fund-detail.registrar-contribution {
+  background-color: #e8f5e9;
+}
+
+.package-fund-detail.registrar-contribution strong,
+.package-fund-detail.registrar-contribution span {
+  color: #2e7d32;
+}
+
+.package-fund-detail.sponsor-contribution {
+  background-color: #fff8e1;
+}
+
+.package-fund-detail.sponsor-contribution strong,
+.package-fund-detail.sponsor-contribution span {
+  color: #ff8f00;
+}
+
+.btn-disabled {
+  background-color: #e0e0e0;
+  color: #757575;
+  border: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: not-allowed;
+  width: 100%;
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+/* New button style for approved packages */
+.btn-success {
+  background-color: #43a047;
+  color: white;
+  border: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: default;
+  width: 100%;
+  margin-top: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-success:hover {
+  background-color: #388e3c;
+}
+
+/* New button style for rejected packages */
+.btn-rejected {
+  background-color: #e53935;
+  color: white;
+  border: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: not-allowed;
+  width: 100%;
+  margin-top: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-rejected:hover {
+  background-color: #d32f2f;
+}
+
+/* Funding allocation information styling */
+.funding-allocation-info {
+  margin: 25px 0;
+  padding: 20px;
+  background-color: #f5f8ff;
+  border-radius: 8px;
+  border-left: 4px solid #4b6cb7;
+}
+
+.funding-allocation-info h3 {
+  margin-top: 0;
+  color: #4b6cb7;
+  font-size: 1.3rem;
+}
+
+.allocation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.allocation-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.allocation-item:last-child {
+  border-bottom: none;
+}
+
+.allocation-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.allocation-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.registrar-contribution {
+  background-color: #e8f5e9;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.registrar-contribution .allocation-label {
+  color: #2e7d32;
+}
+
+.registrar-contribution .allocation-value {
+  color: #2e7d32;
+}
+
+.sponsor-contribution {
+  background-color: #fff8e1;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.sponsor-contribution .allocation-label {
+  color: #ff8f00;
+}
+
+.sponsor-contribution .allocation-value {
+  color: #ff8f00;
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
   .dashboard-container {

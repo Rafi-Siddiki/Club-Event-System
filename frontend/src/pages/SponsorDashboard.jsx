@@ -136,12 +136,162 @@ function SponsorDashboard() {
 
   // Check if user has expressed interest in a specific package
   const hasExpressedInterestInPackage = (opportunityId, packageIndex) => {
+    if (!user || !user._id) return false;
     return interestedPackages.some(
       item => item.opportunityId === opportunityId && item.packageIndex === packageIndex
     );
   };
 
+  // Check if the current sponsor is approved for the entire proposal
+  const isApprovedForEntireProposal = (opportunity) => {
+    if (!user || !user._id) return false;
+    return opportunity.sponsorshipContributionApproval && 
+           opportunity.sponsorshipContributionApproval.status === 'approved' &&
+           opportunity.sponsorshipContributionApproval.approvedSponsorId === user._id;
+  };
+
+  // Check if the current user is approved for a specific package
+  const isApprovedForPackage = (opportunity, packageIndex) => {
+    // If sponsor is approved for entire proposal, they're approved for all packages
+    if (isApprovedForEntireProposal(opportunity)) return true;
+    
+    if (!user || !user._id) return false;
+    return opportunity.approvedPackageSponsors && 
+           opportunity.approvedPackageSponsors.some(
+             approval => approval.packageIndex === packageIndex && 
+                        approval.sponsorId === user._id
+           );
+  };
+
+  // Check if the current user's interest was rejected for a specific package
+  const isRejectedForPackage = (opportunity, packageIndex) => {
+    if (!user || !user._id) return false;
+    return opportunity.rejectedSponsorsNotifications && 
+           opportunity.rejectedSponsorsNotifications.some(
+             notification => notification.packageIndex === packageIndex && 
+                            notification.sponsorId === user._id
+           );
+  };
+
+  // Check if a package is already taken by another sponsor
+  const isPackageAlreadyTaken = (opportunity, packageIndex) => {
+    if (!user || !user._id) return false;
+    return opportunity.approvedPackageSponsors && 
+           opportunity.approvedPackageSponsors.some(
+             approval => approval.packageIndex === packageIndex && 
+                        approval.sponsorId !== user._id
+           );
+  };
+
+  // Check if all packages in the opportunity are available for expressing interest
+  // If any package is in a state other than "available to express interest", return false
+  const areAllPackagesAvailableForInterest = (opportunity) => {
+    if (!user || !user._id) return false; // If no user, don't allow expressing interest
+    
+    // If this entire proposal is already approved for someone (either this sponsor or another)
+    if (opportunity.sponsorshipContributionApproval && 
+        opportunity.sponsorshipContributionApproval.status === 'approved') {
+      // If this sponsor is approved for the whole proposal, they can't express interest again
+      if (opportunity.sponsorshipContributionApproval.approvedSponsorId === user._id) {
+        return false;
+      }
+      
+      // If another sponsor is approved for the entire proposal, no one else can express interest
+      return false;
+    }
+    
+    // Check if this user was generally rejected for this proposal
+    if (opportunity.rejectedSponsorsNotifications && 
+        opportunity.rejectedSponsorsNotifications.some(
+          notification => notification.sponsorId === user._id && notification.packageIndex === -1
+        )) {
+      return false;
+    }
+    
+    // If there are no packages, allow general interest
+    if (!opportunity.packages || opportunity.packages.length === 0) {
+      return true;
+    }
+
+    // Check status of each package
+    for (let i = 0; i < opportunity.packages.length; i++) {
+      // If current user is approved for this package
+      if (isApprovedForPackage(opportunity, i)) {
+        return false;
+      }
+      
+      // If current user's interest was rejected for this package
+      if (isRejectedForPackage(opportunity, i)) {
+        return false;
+      }
+      
+      // If this package is already taken by another sponsor
+      if (isPackageAlreadyTaken(opportunity, i)) {
+        return false;
+      }
+      
+      // If user has expressed interest but no decision yet
+      if (hasExpressedInterestInPackage(opportunity._id, i)) {
+        return false;
+      }
+    }
+    
+    // All packages are available for expressing interest
+    return true;
+  };
+
+  // Get package interest button status and text
+  const getPackageButtonStatus = (opportunity, packageIndex) => {
+    // If current user is approved for this package
+    if (isApprovedForPackage(opportunity, packageIndex)) {
+      return {
+        className: "btn-success",
+        disabled: true,
+        text: "Approved",
+      };
+    }
+    
+    // If current user's interest was rejected for this package
+    if (isRejectedForPackage(opportunity, packageIndex)) {
+      return {
+        className: "btn-rejected",
+        disabled: true,
+        text: "Rejected",
+      };
+    }
+    
+    // If this package is already taken by another sponsor
+    if (isPackageAlreadyTaken(opportunity, packageIndex)) {
+      return {
+        className: "btn-disabled",
+        disabled: true,
+        text: "This proposal is already taken",
+      };
+    }
+    
+    // If user has expressed interest but no decision yet
+    if (hasExpressedInterestInPackage(opportunity._id, packageIndex)) {
+      return {
+        className: "btn-disabled",
+        disabled: true,
+        text: "Interest Expressed",
+      };
+    }
+
+    // Default: user can express interest
+    return {
+      className: "btn-approve",
+      disabled: false,
+      text: "Express Interest",
+    };
+  };
+
   const renderTabContent = () => {
+    // If user is null (during logout), render nothing to prevent errors
+    if (!user) {
+      return <div>Logging out...</div>;
+    }
+
     switch (activeTab) {
       case 'fundingProposals':
         return (
@@ -171,8 +321,12 @@ function SponsorDashboard() {
                     </div>
                     <div className="proposal-actions">
                       <button className="btn-view" onClick={() => handleViewDetails(opportunity)}>View Details</button>
-                      {hasExpressedInterest(opportunity) ? (
+                      {isApprovedForEntireProposal(opportunity) ? (
+                        <button className="btn-success" disabled>Approved For Entire Proposal</button>
+                      ) : hasExpressedInterest(opportunity) ? (
                         <button className="btn-disabled" disabled>Interest Expressed</button>
+                      ) : !areAllPackagesAvailableForInterest(opportunity) ? (
+                        <button className="btn-disabled" disabled>Cannot Express Interest</button>
                       ) : (
                         <button 
                           className="btn-approve" 
@@ -220,8 +374,8 @@ function SponsorDashboard() {
         <div className="main-content">{renderTabContent()}</div>
       </div>
 
-      {/* Event Details Modal */}
-      {showModal && selectedOpportunity && (
+      {/* Event Details Modal - Only render when showModal is true, selectedOpportunity exists, and user exists */}
+      {showModal && selectedOpportunity && user && (
         <div className="modal-overlay">
           <div className="event-details-modal">
             <div className="modal-header">
@@ -264,41 +418,83 @@ function SponsorDashboard() {
                 </div>
               </div>
               
+              {/* Display registrar allocated funds information if available */}
+              {selectedOpportunity.sponsorshipRequestApproval?.status === 'approved' && 
+               selectedOpportunity.packages && selectedOpportunity.packages.length > 0 && (
+                <div className="funding-allocation-info">
+                  <h3>Funding Allocation</h3>
+                  <div className="allocation-details">
+                    <div className="allocation-item">
+                      <span className="allocation-label">Total Funding Required:</span>
+                      <span className="allocation-value">
+                        ${selectedOpportunity.packages.reduce((sum, pkg) => sum + pkg.price, 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="allocation-item registrar-contribution">
+                      <span className="allocation-label">Registrar Contribution:</span>
+                      <span className="allocation-value">
+                        ${selectedOpportunity.packages.reduce((sum, pkg) => sum + (pkg.registrarFunds || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="allocation-item sponsor-contribution">
+                      <span className="allocation-label">Your Contribution:</span>
+                      <span className="allocation-value">
+                        ${selectedOpportunity.packages.reduce((sum, pkg) => 
+                          sum + (pkg.price - (pkg.registrarFunds || 0)), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Display available sponsorship packages */}
               {selectedOpportunity.packages && selectedOpportunity.packages.length > 0 ? (
                 <>
                   <h3>Sponsorship Packages</h3>
                   <div className="packages-container">
-                    {selectedOpportunity.packages.map((pkg, index) => (
-                      <div key={index} className="package-item">
-                        <h4>{pkg.name || `Package ${index + 1}`}</h4>
-                        <div className="package-detail">
-                          <strong>Price:</strong>
-                          <p>${pkg.price}</p>
+                    {selectedOpportunity.packages.map((pkg, index) => {
+                      const { className, disabled, text } = getPackageButtonStatus(selectedOpportunity, index);
+                      return (
+                        <div key={index} className="package-item">
+                          <h4>{pkg.name || `Package ${index + 1}`}</h4>
+                          <div className="package-detail">
+                            <strong>Price:</strong>
+                            <p>${pkg.price}</p>
+                          </div>
+                          {/* Display allocated funds information for this package */}
+                          {selectedOpportunity.sponsorshipRequestApproval?.status === 'approved' && pkg.registrarFunds > 0 && (
+                            <div className="package-funding-allocation">
+                              <div className="package-fund-detail registrar-contribution">
+                                <strong>Registrar Contribution:</strong>
+                                <span>${pkg.registrarFunds}</span>
+                              </div>
+                              <div className="package-fund-detail sponsor-contribution">
+                                <strong>Your Contribution:</strong>
+                                <span>${Math.max(0, pkg.price - pkg.registrarFunds).toFixed(2)}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="package-detail">
+                            <strong>Benefits:</strong>
+                            <ul>
+                              {pkg.benefits && Array.isArray(pkg.benefits) ? 
+                                pkg.benefits.map((benefit, i) => (
+                                  <li key={i}>{benefit}</li>
+                                )) : 
+                                <li>No benefits listed</li>
+                              }
+                            </ul>
+                          </div>
+                          <button 
+                            className={className}
+                            onClick={() => handleExpressInterestInPackage(selectedOpportunity._id, index)}
+                            disabled={disabled}
+                          >
+                            {text}
+                          </button>
                         </div>
-                        <div className="package-detail">
-                          <strong>Benefits:</strong>
-                          <ul>
-                            {pkg.benefits && Array.isArray(pkg.benefits) ? 
-                              pkg.benefits.map((benefit, i) => (
-                                <li key={i}>{benefit}</li>
-                              )) : 
-                              <li>No benefits listed</li>
-                            }
-                          </ul>
-                        </div>
-                        <button 
-                          className={hasExpressedInterestInPackage(selectedOpportunity._id, index) ? "btn-disabled" : "btn-approve"}
-                          onClick={() => handleExpressInterestInPackage(selectedOpportunity._id, index)}
-                          disabled={hasExpressedInterestInPackage(selectedOpportunity._id, index)}
-                        >
-                          {hasExpressedInterestInPackage(selectedOpportunity._id, index) ? 
-                            "Interest Expressed" : 
-                            "Express Interest"
-                          }
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </>
               ) : (

@@ -21,6 +21,25 @@ function RegistrarDashboard() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
   const [pendingSponsorships, setPendingSponsorships] = useState([]);
+  const [approvedUsers, setApprovedUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    club: '',
+    company: '',
+    industry: '',
+    department: '',
+    position: ''
+  });
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [packageAllocations, setPackageAllocations] = useState([]);
+  const [fundAllocationError, setFundAllocationError] = useState(null);
+  const [allocatedFunds, setAllocatedFunds] = useState(0);
 
   useEffect(() => {
     document.title = 'Registrar Dashboard';
@@ -42,8 +61,34 @@ function RegistrarDashboard() {
       fetchPendingUsers();
     } else if (activeTab === 'sponsorshipApprovals') {
       fetchPendingSponsorships();
+    } else if (activeTab === 'showProfiles') {
+      fetchApprovedUsers();
     }
   }, [activeTab]);
+
+  // Initialize package allocations when a request is selected
+  useEffect(() => {
+    if (selectedRequest && selectedRequest.opportunity && selectedRequest.opportunity.packages) {
+      // Initialize allocations for each package
+      const initialAllocations = selectedRequest.opportunity.packages.map((pkg, index) => ({
+        packageIndex: index,
+        amount: pkg.registrarFunds || 0,
+        price: pkg.price
+      }));
+      setPackageAllocations(initialAllocations);
+    }
+  }, [selectedRequest]);
+
+  // Handle package allocation change
+  const handlePackageAllocationChange = (packageIndex, amount) => {
+    setPackageAllocations(prev => 
+      prev.map(allocation => 
+        allocation.packageIndex === packageIndex 
+          ? { ...allocation, amount: parseFloat(amount) || 0 } 
+          : allocation
+      )
+    );
+  };
 
   // Fetch all opportunities with interested sponsors
   const fetchOpportunities = async () => {
@@ -58,11 +103,12 @@ function RegistrarDashboard() {
       const response = await axios.get('/api/opportunities', config);
       
       // Filter opportunities that have interested sponsors (either general or package-specific)
-      const opportunitiesWithInterest = response.data.filter(
-        opportunity => (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) ||
-                       (opportunity.interestedPackages && opportunity.interestedPackages.length > 0)
+      const opportunitiesWithInterest = response.data.filter(opportunity => 
+        (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) || 
+        (opportunity.interestedPackages && opportunity.interestedPackages.length > 0)
       );
       
+      // We don't filter further here - we show all opportunities with any interest
       setOpportunities(opportunitiesWithInterest);
       
       // For each opportunity, fetch sponsor details
@@ -188,6 +234,39 @@ function RegistrarDashboard() {
     }
   };
 
+  // Fetch all approved users
+  const fetchApprovedUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      const response = await axios.get('/api/users', config);
+      // Filter to only show users with approved = true AND role is not registrar
+      const approvedUsersList = response.data.filter(user => 
+        user.approved && user.role !== 'registrar'
+      );
+      setApprovedUsers(approvedUsersList);
+      setFilteredUsers(approvedUsersList); // Initialize filtered users with all approved users
+      setLoadingUsers(false);
+    } catch (err) {
+      setUserError('Failed to fetch approved users');
+      setLoadingUsers(false);
+    }
+  };
+
+  // Function to handle role filtering
+  const handleRoleFilter = (role) => {
+    if (role === 'all') {
+      setFilteredUsers(approvedUsers);
+    } else {
+      setFilteredUsers(approvedUsers.filter(user => user.role === role));
+    }
+  };
+
   const handleApproveInterest = async (opportunityId, sponsorId) => {
     try {
       const config = {
@@ -284,16 +363,46 @@ function RegistrarDashboard() {
   };
 
   const handleApproveSponsorshipRequest = async (opportunityId) => {
+    // Reset any previous errors
+    setFundAllocationError(null);
+    
     try {
       const config = {
         headers: {
           Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
         },
       };
       
-      await axios.put(`/api/opportunities/${opportunityId}/sponsorship/approve`, {}, config);
-      toast.success('Sponsorship request approved successfully');
+      // Validate the allocated funds against the package prices
+      for (const allocation of packageAllocations) {
+        if (allocation.amount < 0) {
+          setFundAllocationError('Allocated funds cannot be negative');
+          return;
+        }
+        
+        if (allocation.amount > allocation.price) {
+          setFundAllocationError(`Allocated funds for a package cannot exceed its price`);
+          return;
+        }
+      }
+      
+      // Include the package allocations in the request
+      await axios.put(`/api/opportunities/${opportunityId}/sponsorship/approve`, {
+        allocations: packageAllocations
+      }, config);
+      
+      // Calculate total allocated funds for the success message
+      const totalAllocated = packageAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+      
+      toast.success(`Sponsorship request approved with allocated funds for packages`);
       fetchPendingSponsorships();
+      
+      // Close the modal
+      if (showModal) {
+        setShowModal(false);
+        setPackageAllocations([]); // Reset allocations for next time
+      }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to approve sponsorship request';
       toast.error(errorMessage);
@@ -342,9 +451,15 @@ function RegistrarDashboard() {
     setShowModal(true);
   };
 
+  const handleViewUserProfile = (selectedUser) => {
+    setSelectedUser(selectedUser);
+    setShowModal(true);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedRequest(null);
+    setSelectedUser(null);
   };
 
   // Function to find sponsor by ID
@@ -353,6 +468,102 @@ function RegistrarDashboard() {
       name: 'Unknown Sponsor', 
       company: 'Unknown Company' 
     };
+  };
+  
+  // Function to handle edit profile button click
+  const handleEditProfile = (userToEdit) => {
+    setSelectedUser(userToEdit);
+    setIsEditMode(true);
+    setShowModal(true);
+    
+    // Populate form data with user info
+    setEditFormData({
+      name: userToEdit.name || '',
+      email: userToEdit.email || '',
+      phone: userToEdit.phone || '',
+      club: userToEdit.club || '',
+      company: userToEdit.company || '',
+      industry: userToEdit.industry || '',
+      department: userToEdit.department || '',
+      position: userToEdit.position || ''
+    });
+  };
+  
+  // Function to handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
+  };
+  
+  // Function to save profile changes
+  const handleSaveProfile = async () => {
+    if (!selectedUser) return;
+    
+    setUpdateLoading(true);
+    setUpdateError(null);
+    
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      // Extract only the fields relevant for this user type to avoid sending unnecessary data
+      const userData = {
+        name: editFormData.name,
+        email: editFormData.email,
+        phone: editFormData.phone
+      };
+      
+      // Add role-specific fields
+      if (selectedUser.role === 'user') {
+        userData.club = editFormData.club;
+        userData.position = editFormData.position;
+      } else if (selectedUser.role === 'sponsor') {
+        userData.company = editFormData.company;
+        userData.industry = editFormData.industry;
+        userData.position = editFormData.position;
+      } else if (selectedUser.role === 'panel') {
+        userData.department = editFormData.department;
+        userData.position = editFormData.position;
+      }
+      
+      // Make API call to update user
+      await axios.put(`/api/users/${selectedUser._id}`, userData, config);
+      
+      toast.success('Profile updated successfully');
+      
+      // Refresh user list
+      fetchApprovedUsers();
+      
+      // Close modal and reset states
+      setIsEditMode(false);
+      setShowModal(false);
+      setSelectedUser(null);
+      
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to update profile';
+      setUpdateError(message);
+      toast.error(message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+  
+  // Function to cancel edit mode
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setUpdateError(null);
+    
+    // If we were in edit mode but not viewing a profile before, close the modal
+    if (!selectedUser) {
+      setShowModal(false);
+    }
   };
 
   const renderTabContent = () => {
@@ -636,6 +847,85 @@ function RegistrarDashboard() {
             )}
           </div>
         );
+      case 'showProfiles':
+        return (
+          <div className="user-profiles">
+            <h2>Approved User Profiles</h2>
+            {loadingUsers ? (
+              <p>Loading profiles...</p>
+            ) : userError ? (
+              <p className="error">{userError}</p>
+            ) : approvedUsers.length > 0 ? (
+              <div>
+                <div className="filter-controls">
+                  <select 
+                    onChange={(e) => handleRoleFilter(e.target.value)}
+                    defaultValue="all"
+                  >
+                    <option value="all">All Users</option>
+                    <option value="user">User</option>
+                    <option value="panel">Panel Members</option>
+                    <option value="sponsor">Sponsors</option>
+                  </select>
+                </div>
+                <table className="profile-requests-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Role</th>
+                      <th>Affiliated With</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map(approvedUser => (
+                        <tr key={approvedUser._id}>
+                          <td>{approvedUser.name}</td>
+                          <td>{approvedUser.email}</td>
+                          <td>{approvedUser.phone || 'N/A'}</td>
+                          <td>
+                            <span className={`role-badge role-${approvedUser.role}`}>
+                              {approvedUser.role === 'user' ? 'User' : 
+                               approvedUser.role === 'panel' ? 'Panel Member' : 
+                               approvedUser.role === 'sponsor' ? 'Sponsor' : 
+                               approvedUser.role}
+                            </span>
+                          </td>
+                          <td>{approvedUser.club || approvedUser.company || 'N/A'}</td>
+                          <td>
+                            <button 
+                              className="btn-view-details" 
+                              onClick={() => handleViewUserProfile(approvedUser)}
+                            >
+                              <i className="fas fa-user"></i> View Profile
+                            </button>
+                            <button 
+                              className="btn-edit-profile" 
+                              onClick={() => handleEditProfile(approvedUser)}
+                            >
+                              <i className="fas fa-edit"></i> Edit Profile
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="no-results">No users match this filter.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="no-requests">
+                <p>No approved users found.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -675,13 +965,19 @@ function RegistrarDashboard() {
             >
               <i className="fas fa-money-check-alt"></i> Sponsorship Approvals
             </li>
+            <li
+              className={activeTab === 'showProfiles' ? 'active' : ''}
+              onClick={() => setActiveTab('showProfiles')}
+            >
+              <i className="fas fa-id-card"></i> Show Profiles
+            </li>
           </ul>
         </div>
         <div className="main-content">{renderTabContent()}</div>
       </div>
 
       {/* Request Details Modal */}
-      {showModal && selectedRequest && (
+      {showModal && selectedRequest && !selectedUser && (
         <div className="modal-overlay">
           <div className="request-details-modal">
             <div className="modal-header">
@@ -798,6 +1094,50 @@ function RegistrarDashboard() {
                 </>
               )}
               
+              {/* Fund Allocation Section - Only show for sponsorship approvals */}
+              {activeTab === 'sponsorshipApprovals' && selectedRequest.opportunity && selectedRequest.opportunity.packages && (
+                <div className="fund-allocation-section">
+                  <h3>Fund Allocation for Packages</h3>
+                  <p>Allocate funds for each package:</p>
+                  <div className="packages-allocation-container">
+                    {selectedRequest.opportunity.packages.map((pkg, index) => (
+                      <div key={index} className="package-allocation-item">
+                        <h4>{pkg.name || `Package ${index + 1}`}</h4>
+                        <div className="package-price-info">
+                          <span className="package-price-label">Package Price:</span>
+                          <span className="package-price-value">${pkg.price}</span>
+                        </div>
+                        <div className="fund-allocation-form">
+                          <div className="form-group">
+                            <label htmlFor={`allocation-${index}`}>Allocate Funds ($):</label>
+                            <input 
+                              type="number" 
+                              id={`allocation-${index}`}
+                              name={`allocation-${index}`}
+                              min="0"
+                              max={pkg.price}
+                              value={packageAllocations[index]?.amount || 0}
+                              onChange={(e) => handlePackageAllocationChange(index, e.target.value)}
+                              className="funds-input"
+                            />
+                          </div>
+                          <p className="fund-allocation-info">
+                            <span className="allocation-label">Sponsor will contribute:</span>
+                            <span className="allocation-value">
+                              ${Math.max(0, pkg.price - (packageAllocations[index]?.amount || 0)).toFixed(2)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {fundAllocationError && (
+                    <p className="error">{fundAllocationError}</p>
+                  )}
+                </div>
+              )}
+              
               <div className="modal-actions">
                 {selectedRequest.sponsor ? (
                   <>
@@ -855,6 +1195,226 @@ function RegistrarDashboard() {
                   <i className="fas fa-times-circle"></i> Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {showModal && selectedUser && (
+        <div className="modal-overlay">
+          <div className="profile-details-modal">
+            <div className="modal-header">
+              <h2>{isEditMode ? 'Edit User Profile' : 'User Profile'}</h2>
+              <button className="close-button" onClick={closeModal}>×</button>
+            </div>
+            <div className="modal-content">
+              {isEditMode ? (
+                <div className="edit-profile-form">
+                  <div className="form-group">
+                    <label htmlFor="name">Name</label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={editFormData.name}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="email">Email</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={editFormData.email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="phone">Phone</label>
+                    <input
+                      type="text"
+                      id="phone"
+                      name="phone"
+                      value={editFormData.phone}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  {selectedUser.role === 'user' && (
+                    <>
+                      <div className="form-group">
+                        <label htmlFor="club">Club</label>
+                        <input
+                          type="text"
+                          id="club"
+                          name="club"
+                          value={editFormData.club}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="position">Position</label>
+                        <input
+                          type="text"
+                          id="position"
+                          name="position"
+                          value={editFormData.position}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {selectedUser.role === 'sponsor' && (
+                    <>
+                      <div className="form-group">
+                        <label htmlFor="company">Company</label>
+                        <input
+                          type="text"
+                          id="company"
+                          name="company"
+                          value={editFormData.company}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="industry">Industry</label>
+                        <input
+                          type="text"
+                          id="industry"
+                          name="industry"
+                          value={editFormData.industry}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="position">Position</label>
+                        <input
+                          type="text"
+                          id="position"
+                          name="position"
+                          value={editFormData.position}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {selectedUser.role === 'panel' && (
+                    <>
+                      <div className="form-group">
+                        <label htmlFor="department">Department</label>
+                        <input
+                          type="text"
+                          id="department"
+                          name="department"
+                          value={editFormData.department}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="position">Position</label>
+                        <input
+                          type="text"
+                          id="position"
+                          name="position"
+                          value={editFormData.position}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {updateError && <p className="error">{updateError}</p>}
+                  <div className="modal-actions">
+                    <button
+                      className="btn-save"
+                      onClick={handleSaveProfile}
+                      disabled={updateLoading}
+                    >
+                      {updateLoading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button className="btn-cancel" onClick={handleCancelEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="profile-section">
+                    <h3>Personal Information</h3>
+                    <div className="profile-detail-item">
+                      <strong>Name:</strong>
+                      <p>{selectedUser.name}</p>
+                    </div>
+                    <div className="profile-detail-item">
+                      <strong>Email:</strong>
+                      <p>{selectedUser.email}</p>
+                    </div>
+                    <div className="profile-detail-item">
+                      <strong>Phone:</strong>
+                      <p>{selectedUser.phone || 'Not provided'}</p>
+                    </div>
+                    <div className="profile-detail-item">
+                      <strong>Role:</strong>
+                      <p>{selectedUser.role === 'user' ? 'Users' : 
+                          selectedUser.role === 'panel' ? 'Panel Member' : 
+                          selectedUser.role === 'sponsor' ? 'Sponsor' : 
+                          selectedUser.role}</p>
+                    </div>
+                  </div>
+
+                  {selectedUser.role === 'user' && (
+                    <div className="profile-section">
+                      <h3>Club Information</h3>
+                      <div className="profile-detail-item">
+                        <strong>Club Name:</strong>
+                        <p>{selectedUser.club || 'Not specified'}</p>
+                      </div>
+                      <div className="profile-detail-item">
+                        <strong>Position:</strong>
+                        <p>{selectedUser.position || 'Not specified'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedUser.role === 'sponsor' && (
+                    <div className="profile-section">
+                      <h3>Company Information</h3>
+                      <div className="profile-detail-item">
+                        <strong>Company:</strong>
+                        <p>{selectedUser.company || 'Not specified'}</p>
+                      </div>
+                      <div className="profile-detail-item">
+                        <strong>Industry:</strong>
+                        <p>{selectedUser.industry || 'Not specified'}</p>
+                      </div>
+                      <div className="profile-detail-item">
+                        <strong>Position:</strong>
+                        <p>{selectedUser.position || 'Not specified'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedUser.role === 'panel' && (
+                    <div className="profile-section">
+                      <h3>Additional Information</h3>
+                      <div className="profile-detail-item">
+                        <strong>Department:</strong>
+                        <p>{selectedUser.department || 'Not specified'}</p>
+                      </div>
+                      <div className="profile-detail-item">
+                        <strong>Position:</strong>
+                        <p>{selectedUser.position || 'Not specified'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="modal-actions">
+                    <button className="btn-view-details" onClick={closeModal}>
+                      <i className="fas fa-times-circle"></i> Close
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

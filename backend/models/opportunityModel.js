@@ -38,6 +38,10 @@ const opportunitySchema = mongoose.Schema({
         },
         benefits: {
             type: [String],
+        },
+        registrarFunds: {
+            type: Number,
+            default: 0
         }
     }],
     image: {
@@ -81,6 +85,10 @@ const opportunitySchema = mongoose.Schema({
         },
         comments: {
             type: String
+        },
+        registrarFunds: {
+            type: Number,
+            default: 0
         }
     },
     // General event approval
@@ -116,6 +124,10 @@ const opportunitySchema = mongoose.Schema({
         },
         comments: {
             type: String
+        },
+        approvedSponsorId: { // Track which sponsor was approved for general interest
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         }
     },
     interestedPackages: [{
@@ -131,6 +143,49 @@ const opportunitySchema = mongoose.Schema({
         expressedAt: {
             type: Date,
             default: Date.now
+        }
+    }],
+    // Track which sponsors have been approved for specific packages
+    approvedPackageSponsors: [{
+        packageIndex: {
+            type: Number,
+            required: true
+        },
+        sponsorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        approvedAt: {
+            type: Date,
+            default: Date.now
+        },
+        approvedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }
+    }],
+    // Track notifications for rejected sponsors
+    rejectedSponsorsNotifications: [{
+        sponsorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        packageIndex: {
+            type: Number,
+            required: true
+        },
+        reason: {
+            type: String
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        read: {
+            type: Boolean,
+            default: false
         }
     }]
 }, {
