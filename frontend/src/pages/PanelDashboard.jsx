@@ -293,19 +293,19 @@ function PanelDashboard() {
                      opportunity.generalApproval.status === 'approved'
       );
       
-      // For the dropdown, filter events without sponsorship requests
+      // For the dropdown, filter events that:
+      // 1. Have no sponsorship request (status='none')
+      // 2. Are not published
       const eventsForSponsorshipDropdown = approvedEventsList.filter(
-        opportunity => opportunity.sponsorshipRequestApproval.status === 'none'
+        opportunity => opportunity.sponsorshipRequestApproval.status === 'none' && 
+                      (!opportunity.publicationStatus || 
+                       opportunity.publicationStatus.status !== 'published')
       );
       
-      // For the publish list, filter events not yet published
-      const eventsToPublish = approvedEventsList.filter(
-        opportunity => (!opportunity.publicationStatus || 
-                  opportunity.publicationStatus.status !== 'published')
-      );
+      // For the publish list, include all approved events
+      setApprovedEvents(approvedEventsList);
       
-      setApprovedEvents(eventsToPublish);
-      // Add a new state for dropdown events
+      // Set dropdown events
       setEventsForSponsorship(eventsForSponsorshipDropdown);
       setLoadingApprovedEvents(false);
     } catch (err) {
@@ -316,6 +316,16 @@ function PanelDashboard() {
 
   const handlePublishEvent = async (eventId) => {
     try {
+      // First get the event to check its sponsorship status
+      const eventToPublish = approvedEvents.find(event => event._id === eventId);
+      
+      if (eventToPublish && 
+          eventToPublish.sponsorshipRequestApproval && 
+          eventToPublish.sponsorshipRequestApproval.status === 'pending') {
+        toast.error('Cannot publish event while sponsorship request is pending approval');
+        return;
+      }
+      
       const config = {
         headers: {
           Authorization: `Bearer ${user.token}`,
@@ -799,33 +809,67 @@ function PanelDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {approvedEvents.map(event => (
-                    <tr key={event._id}>
-                      <td>{event.name}</td>
-                      <td>{event.club}</td>
-                      <td>{new Date(event.date).toLocaleDateString()}</td>
-                      <td>{event.location}</td>
-                      <td>
-                        <span className={`status-badge status-${event.publicationStatus?.status || 'unpublished'}`}>
-                          {event.publicationStatus?.status || 'Unpublished'}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          className="btn-approve" 
-                          onClick={() => handlePublishEvent(event._id)}
-                        >
-                          <i className="fas fa-check"></i> Publish
-                        </button>
-                        <button 
-                          className="btn-reject" 
-                          onClick={() => handlePostponeEvent(event._id)}
-                        >
-                          <i className="fas fa-pause"></i> Postpone
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {approvedEvents.map(event => {
+                    // Determine event status and whether publish button should be enabled
+                    const hasPendingSponsorshipRequest = 
+                      event.sponsorshipRequestApproval && 
+                      event.sponsorshipRequestApproval.status === 'pending';
+                    
+                    const isPublished = 
+                      event.publicationStatus && 
+                      event.publicationStatus.status === 'published';
+                    
+                    let statusText = 'Ready to Publish';
+                    let statusClass = 'status-approved';
+                    
+                    if (isPublished) {
+                      statusText = 'Published';
+                      statusClass = 'status-published';
+                    } else if (hasPendingSponsorshipRequest) {
+                      statusText = 'Awaiting Sponsorship Approval';
+                      statusClass = 'status-pending';
+                    }
+                    
+                    return (
+                      <tr key={event._id}>
+                        <td>{event.name}</td>
+                        <td>{event.club}</td>
+                        <td>{new Date(event.date).toLocaleDateString()}</td>
+                        <td>{event.location}</td>
+                        <td>
+                          <span className={`status-badge ${statusClass}`}>
+                            {statusText}
+                          </span>
+                        </td>
+                        <td>
+                          {isPublished ? (
+                            <button className="btn-disabled" disabled>
+                              <i className="fas fa-check"></i> Published
+                            </button>
+                          ) : hasPendingSponsorshipRequest ? (
+                            <button className="btn-disabled" disabled>
+                              <i className="fas fa-clock"></i> Awaiting Approval
+                            </button>
+                          ) : (
+                            <button 
+                              className="btn-approve" 
+                              onClick={() => handlePublishEvent(event._id)}
+                            >
+                              <i className="fas fa-check"></i> Publish
+                            </button>
+                          )}
+                          {!isPublished && !hasPendingSponsorshipRequest && (
+                            <button 
+                              className="btn-reject" 
+                              onClick={() => handlePostponeEvent(event._id)}
+                            >
+                              <i className="fas fa-pause"></i> Postpone
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

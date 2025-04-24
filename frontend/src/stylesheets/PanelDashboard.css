@@ -386,6 +386,39 @@
   color: #856404;
 }
 
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-pending {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-published {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.btn-disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: not-allowed;
+  margin-right: 8px;
+}
+
 @media (max-width: 768px) {
   .panel-dashboard {
     padding: 10px;
