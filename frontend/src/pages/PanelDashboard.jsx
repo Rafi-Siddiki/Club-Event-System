@@ -44,6 +44,7 @@ function PanelDashboard() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
   const [approvedEvents, setApprovedEvents] = useState([]);
+  const [eventsForSponsorship, setEventsForSponsorship] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [loadingApprovedEvents, setLoadingApprovedEvents] = useState(false);
@@ -286,15 +287,26 @@ function PanelDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter to only include events approved by registrar but not yet published
+      // Filter to only include events approved by registrar 
       const approvedEventsList = response.data.filter(
         opportunity => opportunity.generalApproval && 
-                     opportunity.generalApproval.status === 'approved' &&
-                     (!opportunity.publicationStatus || 
-                      opportunity.publicationStatus.status !== 'published')
+                     opportunity.generalApproval.status === 'approved'
       );
       
-      setApprovedEvents(approvedEventsList);
+      // For the dropdown, filter events without sponsorship requests
+      const eventsForSponsorshipDropdown = approvedEventsList.filter(
+        opportunity => opportunity.sponsorshipRequestApproval.status === 'none'
+      );
+      
+      // For the publish list, filter events not yet published
+      const eventsToPublish = approvedEventsList.filter(
+        opportunity => (!opportunity.publicationStatus || 
+                  opportunity.publicationStatus.status !== 'published')
+      );
+      
+      setApprovedEvents(eventsToPublish);
+      // Add a new state for dropdown events
+      setEventsForSponsorship(eventsForSponsorshipDropdown);
       setLoadingApprovedEvents(false);
     } catch (err) {
       setApprovedEventsError('Failed to fetch approved events');
@@ -374,7 +386,7 @@ function PanelDashboard() {
 
       await axios.post('/api/opportunities', {
         ...eventFormData,
-        // Set empty packages array since this is just an event without sponsorship
+        // Set empty packages array and 0 starting price to indicate it's not a sponsorship request
         packages: [],
         startingPrice: 0
       }, config)
@@ -460,7 +472,7 @@ function PanelDashboard() {
                     required
                   >
                     <option value="">Select an event</option>
-                    {approvedEvents.map(event => (
+                    {eventsForSponsorship.map(event => (
                       <option key={event._id} value={event._id}>
                         {event.name} - {new Date(event.date).toLocaleDateString()}
                       </option>

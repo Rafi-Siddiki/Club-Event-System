@@ -73,8 +73,8 @@ const opportunitySchema = mongoose.Schema({
     sponsorshipRequestApproval: {
         status: {
             type: String,
-            enum: ['pending', 'approved', 'rejected'],
-            default: 'pending'
+            enum: ['none', 'pending', 'approved', 'rejected'],
+            default: 'none' // Changed from 'pending' to 'none'
         },
         updatedBy: {
             type: mongoose.Schema.Types.ObjectId,

@@ -60,6 +60,9 @@ const createOpportunity = asyncHandler(async (req, res) => {
         throw new Error('Please fill all required fields');
     }
 
+    // Determine if this is a sponsorship request or just an event
+    const isSponsorshipRequest = packages && packages.length > 0 && startingPrice > 0;
+
     const opportunity = await Opportunity.create({
         name,
         description,
@@ -71,7 +74,11 @@ const createOpportunity = asyncHandler(async (req, res) => {
         packages,
         image: image || '',
         contactPerson,
-        contactEmail
+        contactEmail,
+        // Set sponsorshipRequestApproval status based on whether packages exist
+        sponsorshipRequestApproval: isSponsorshipRequest ? 
+            { status: 'pending', updatedBy: req.user.id, updatedAt: Date.now() } : 
+            { status: 'none' }
     });
 
     res.status(201).json(opportunity);
