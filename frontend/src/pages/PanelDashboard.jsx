@@ -39,6 +39,8 @@ function PanelDashboard() {
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState('fundingProposals')
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [filteredPendingUsers, setFilteredPendingUsers] = useState([]);
+  const [pendingUserRoleFilter, setPendingUserRoleFilter] = useState('all');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
   const [approvedEvents, setApprovedEvents] = useState([]);
@@ -82,6 +84,12 @@ function PanelDashboard() {
       fetchApprovedEvents();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (pendingUsers.length > 0) {
+      setFilteredPendingUsers(pendingUsers);
+    }
+  }, [pendingUsers]);
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -236,6 +244,34 @@ function PanelDashboard() {
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to approve user';
       toast.error(errorMessage);
+    }
+  };
+
+  const handleRejectUser = async (userId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/users/reject/${userId}`, {}, config);
+      toast.success('User rejected successfully');
+      
+      // Refresh the list
+      fetchPendingUsers();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject user';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handlePendingUserRoleFilter = (role) => {
+    setPendingUserRoleFilter(role);
+    if (role === 'all') {
+      setFilteredPendingUsers(pendingUsers);
+    } else {
+      setFilteredPendingUsers(pendingUsers.filter(user => user.role === role));
     }
   };
 
@@ -542,6 +578,19 @@ function PanelDashboard() {
         return (
           <div className="panel-user-approvals">
             <h2>User Approval Requests</h2>
+            
+            {/* Add filter dropdown */}
+            <div className="filter-controls">
+              <select 
+                onChange={(e) => handlePendingUserRoleFilter(e.target.value)}
+                value={pendingUserRoleFilter}
+              >
+                <option value="all">All Users</option>
+                <option value="user">Regular Users</option>
+                <option value="sponsor">Sponsors</option>
+              </select>
+            </div>
+            
             {loadingUsers ? (
               <p className="panel-loading">Loading users...</p>
             ) : userError ? (
@@ -559,23 +608,35 @@ function PanelDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingUsers.map(pendingUser => (
-                    <tr key={pendingUser._id}>
-                      <td>{pendingUser.name}</td>
-                      <td>{pendingUser.email}</td>
-                      <td>{pendingUser.phone}</td>
-                      <td>{pendingUser.role}</td>
-                      <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
-                      <td>
-                        <button 
-                          className="panel-approve-btn" 
-                          onClick={() => handleApproveUser(pendingUser._id)}
-                        >
-                          Approve
-                        </button>
-                      </td>
+                  {filteredPendingUsers.length > 0 ? (
+                    filteredPendingUsers.map(pendingUser => (
+                      <tr key={pendingUser._id}>
+                        <td>{pendingUser.name}</td>
+                        <td>{pendingUser.email}</td>
+                        <td>{pendingUser.phone}</td>
+                        <td>{pendingUser.role}</td>
+                        <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
+                        <td>
+                          <button 
+                            className="panel-approve-btn" 
+                            onClick={() => handleApproveUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-check"></i> Approve
+                          </button>
+                          <button 
+                            className="panel-reject-btn" 
+                            onClick={() => handleRejectUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-times"></i> Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-results">No users match this filter.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             ) : (

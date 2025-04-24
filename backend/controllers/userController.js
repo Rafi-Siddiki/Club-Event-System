@@ -203,6 +203,29 @@ const approveUser = asyncHandler(async (req, res) => {
     res.status(200).json({ message: 'User approved successfully' });
 });
 
+// @desc    Reject a user
+// @route   PUT /api/users/reject/:id
+// @access  Private (Panel, Registrar only)
+const rejectUser = asyncHandler(async (req, res) => {
+    const userToReject = await User.findById(req.params.id);
+
+    if (!userToReject) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    // Check if the user has role Panel or Registrar
+    if (req.user.role !== 'panel' && req.user.role !== 'registrar') {
+        res.status(401);
+        throw new Error('Not authorized to reject users');
+    }
+
+    // Delete the user
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ message: 'User rejected and removed from the system' });
+});
+
 // @desc Get all users
 // @route GET /api/users
 // @access Private
@@ -273,6 +296,7 @@ module.exports = {
     getMe,
     getUserById,
     approveUser,
+    rejectUser,
     getAllUsers,
     updateUser
 };

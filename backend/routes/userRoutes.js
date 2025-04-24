@@ -9,6 +9,7 @@ const {
     getMe,
     getUserById,
     approveUser,
+    rejectUser,
     getAllUsers,
     updateUser
 } = require('../controllers/userController');
@@ -29,6 +30,9 @@ router.get('/:id', protect, authorizeRoles('registrar', 'admin'), getUserById);
 
 // Approval - only panel/registrar can approve users
 router.put('/approve/:id', protect, authorizeRoles('panel', 'registrar'), approveUser);
+
+// Add this route
+router.put('/reject/:id', protect, authorizeRoles('panel', 'registrar'), rejectUser);
 
 // Update user profile - accessible by registrar or the user themselves
 router.put('/:id', protect, updateUser);

@@ -18,6 +18,8 @@ function RegistrarDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [filteredPendingUsers, setFilteredPendingUsers] = useState([]);
+  const [pendingUserRoleFilter, setPendingUserRoleFilter] = useState('all');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
   const [pendingSponsorships, setPendingSponsorships] = useState([]);
@@ -66,7 +68,6 @@ function RegistrarDashboard() {
     }
   }, [activeTab]);
 
-  // Initialize package allocations when a request is selected
   useEffect(() => {
     if (selectedRequest && selectedRequest.opportunity && selectedRequest.opportunity.packages) {
       // Initialize allocations for each package
@@ -79,7 +80,12 @@ function RegistrarDashboard() {
     }
   }, [selectedRequest]);
 
-  // Handle package allocation change
+  useEffect(() => {
+    if (pendingUsers.length > 0) {
+      setFilteredPendingUsers(pendingUsers);
+    }
+  }, [pendingUsers]);
+
   const handlePackageAllocationChange = (packageIndex, amount) => {
     setPackageAllocations(prev => 
       prev.map(allocation => 
@@ -90,7 +96,6 @@ function RegistrarDashboard() {
     );
   };
 
-  // Fetch all opportunities with interested sponsors
   const fetchOpportunities = async () => {
     setLoading(true);
     try {
@@ -102,21 +107,17 @@ function RegistrarDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter opportunities that have interested sponsors (either general or package-specific)
       const opportunitiesWithInterest = response.data.filter(opportunity => 
         (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) || 
         (opportunity.interestedPackages && opportunity.interestedPackages.length > 0)
       );
       
-      // We don't filter further here - we show all opportunities with any interest
       setOpportunities(opportunitiesWithInterest);
       
-      // For each opportunity, fetch sponsor details
       const sponsorsPromises = [];
       const sponsorIds = new Set();
       
       opportunitiesWithInterest.forEach(opportunity => {
-        // Add general interest sponsors
         if (opportunity.interestedSponsors) {
           opportunity.interestedSponsors.forEach(sponsorId => {
             if (!sponsorIds.has(sponsorId)) {
@@ -132,7 +133,6 @@ function RegistrarDashboard() {
           });
         }
         
-        // Add package-specific interest sponsors
         if (opportunity.interestedPackages) {
           opportunity.interestedPackages.forEach(packageInterest => {
             const sponsorId = packageInterest.sponsorId;
@@ -163,7 +163,6 @@ function RegistrarDashboard() {
     }
   };
 
-  // Fetch all opportunities for approval
   const fetchOpportunitiesForApproval = async () => {
     setLoading(true);
     try {
@@ -175,7 +174,6 @@ function RegistrarDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter opportunities that require approval
       const opportunitiesForApproval = response.data.filter(
         opportunity => !opportunity.generalApproval || opportunity.generalApproval.status === 'pending'
       );
@@ -188,7 +186,6 @@ function RegistrarDashboard() {
     }
   };
 
-  // Fetch all pending users
   const fetchPendingUsers = async () => {
     setLoadingUsers(true);
     try {
@@ -199,7 +196,6 @@ function RegistrarDashboard() {
       };
       
       const response = await axios.get('/api/users', config);
-      // Filter to only show users with approved = false
       const pendingUsersList = response.data.filter(user => !user.approved);
       setPendingUsers(pendingUsersList);
       setLoadingUsers(false);
@@ -220,7 +216,6 @@ function RegistrarDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter to only include opportunities with pending sponsorship requests
       const pendingSponsorshipsList = response.data.filter(
         opportunity => opportunity.sponsorshipRequestApproval && 
                      opportunity.sponsorshipRequestApproval.status === 'pending'
@@ -234,7 +229,6 @@ function RegistrarDashboard() {
     }
   };
 
-  // Fetch all approved users
   const fetchApprovedUsers = async () => {
     setLoadingUsers(true);
     try {
@@ -245,12 +239,11 @@ function RegistrarDashboard() {
       };
       
       const response = await axios.get('/api/users', config);
-      // Filter to only show users with approved = true AND role is not registrar
       const approvedUsersList = response.data.filter(user => 
         user.approved && user.role !== 'registrar'
       );
       setApprovedUsers(approvedUsersList);
-      setFilteredUsers(approvedUsersList); // Initialize filtered users with all approved users
+      setFilteredUsers(approvedUsersList);
       setLoadingUsers(false);
     } catch (err) {
       setUserError('Failed to fetch approved users');
@@ -258,12 +251,20 @@ function RegistrarDashboard() {
     }
   };
 
-  // Function to handle role filtering
   const handleRoleFilter = (role) => {
     if (role === 'all') {
       setFilteredUsers(approvedUsers);
     } else {
       setFilteredUsers(approvedUsers.filter(user => user.role === role));
+    }
+  };
+
+  const handlePendingUserRoleFilter = (role) => {
+    setPendingUserRoleFilter(role);
+    if (role === 'all') {
+      setFilteredPendingUsers(pendingUsers);
+    } else {
+      setFilteredPendingUsers(pendingUsers.filter(user => user.role === role));
     }
   };
 
@@ -354,7 +355,6 @@ function RegistrarDashboard() {
       await axios.put(`/api/users/approve/${userId}`, {}, config);
       toast.success('User approved successfully');
       
-      // Refresh the list
       fetchPendingUsers();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to approve user';
@@ -362,8 +362,25 @@ function RegistrarDashboard() {
     }
   };
 
+  const handleRejectUser = async (userId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/users/reject/${userId}`, {}, config);
+      toast.success('User rejected successfully');
+      
+      fetchPendingUsers();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject user';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleApproveSponsorshipRequest = async (opportunityId) => {
-    // Reset any previous errors
     setFundAllocationError(null);
     
     try {
@@ -374,7 +391,6 @@ function RegistrarDashboard() {
         },
       };
       
-      // Validate the allocated funds against the package prices
       for (const allocation of packageAllocations) {
         if (allocation.amount < 0) {
           setFundAllocationError('Allocated funds cannot be negative');
@@ -387,21 +403,18 @@ function RegistrarDashboard() {
         }
       }
       
-      // Include the package allocations in the request
       await axios.put(`/api/opportunities/${opportunityId}/sponsorship/approve`, {
         allocations: packageAllocations
       }, config);
       
-      // Calculate total allocated funds for the success message
       const totalAllocated = packageAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
       
       toast.success(`Sponsorship request approved with allocated funds for packages`);
       fetchPendingSponsorships();
       
-      // Close the modal
       if (showModal) {
         setShowModal(false);
-        setPackageAllocations([]); // Reset allocations for next time
+        setPackageAllocations([]);
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to approve sponsorship request';
@@ -462,7 +475,6 @@ function RegistrarDashboard() {
     setSelectedUser(null);
   };
 
-  // Function to find sponsor by ID
   const getSponsorById = (sponsorId) => {
     return interestedSponsors.find(sponsor => sponsor._id === sponsorId) || { 
       name: 'Unknown Sponsor', 
@@ -470,13 +482,11 @@ function RegistrarDashboard() {
     };
   };
   
-  // Function to handle edit profile button click
   const handleEditProfile = (userToEdit) => {
     setSelectedUser(userToEdit);
     setIsEditMode(true);
     setShowModal(true);
     
-    // Populate form data with user info
     setEditFormData({
       name: userToEdit.name || '',
       email: userToEdit.email || '',
@@ -489,7 +499,6 @@ function RegistrarDashboard() {
     });
   };
   
-  // Function to handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prevData => ({
@@ -498,7 +507,6 @@ function RegistrarDashboard() {
     }));
   };
   
-  // Function to save profile changes
   const handleSaveProfile = async () => {
     if (!selectedUser) return;
     
@@ -513,14 +521,12 @@ function RegistrarDashboard() {
         }
       };
       
-      // Extract only the fields relevant for this user type to avoid sending unnecessary data
       const userData = {
         name: editFormData.name,
         email: editFormData.email,
         phone: editFormData.phone
       };
       
-      // Add role-specific fields
       if (selectedUser.role === 'user') {
         userData.club = editFormData.club;
         userData.position = editFormData.position;
@@ -533,15 +539,12 @@ function RegistrarDashboard() {
         userData.position = editFormData.position;
       }
       
-      // Make API call to update user
       await axios.put(`/api/users/${selectedUser._id}`, userData, config);
       
       toast.success('Profile updated successfully');
       
-      // Refresh user list
       fetchApprovedUsers();
       
-      // Close modal and reset states
       setIsEditMode(false);
       setShowModal(false);
       setSelectedUser(null);
@@ -555,12 +558,10 @@ function RegistrarDashboard() {
     }
   };
   
-  // Function to cancel edit mode
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setUpdateError(null);
     
-    // If we were in edit mode but not viewing a profile before, close the modal
     if (!selectedUser) {
       setShowModal(false);
     }
@@ -591,7 +592,6 @@ function RegistrarDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* General interests */}
                   {opportunities.flatMap(opportunity => 
                     opportunity.interestedSponsors ? opportunity.interestedSponsors.map(sponsorId => {
                       const sponsor = getSponsorById(sponsorId);
@@ -628,7 +628,6 @@ function RegistrarDashboard() {
                     }) : []
                   )}
                   
-                  {/* Package-specific interests */}
                   {opportunities.flatMap(opportunity => 
                     opportunity.interestedPackages ? opportunity.interestedPackages.map(packageInterest => {
                       const sponsor = getSponsorById(packageInterest.sponsorId);
@@ -744,6 +743,20 @@ function RegistrarDashboard() {
         return (
           <div className="user-approvals">
             <h2>User Approval Requests</h2>
+            
+            {/* Add filter dropdown */}
+            <div className="filter-controls">
+              <select 
+                onChange={(e) => handlePendingUserRoleFilter(e.target.value)}
+                value={pendingUserRoleFilter}
+              >
+                <option value="all">All Users</option>
+                <option value="user">Regular Users</option>
+                <option value="sponsor">Sponsors</option>
+                <option value="panel">Panel Members</option>
+              </select>
+            </div>
+            
             {loadingUsers ? (
               <p>Loading users...</p>
             ) : userError ? (
@@ -761,23 +774,42 @@ function RegistrarDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingUsers.map(pendingUser => (
-                    <tr key={pendingUser._id}>
-                      <td>{pendingUser.name}</td>
-                      <td>{pendingUser.email}</td>
-                      <td>{pendingUser.phone}</td>
-                      <td>{pendingUser.role}</td>
-                      <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
-                      <td>
-                        <button 
-                          className="btn-approve" 
-                          onClick={() => handleApproveUser(pendingUser._id)}
-                        >
-                          <i className="fas fa-check"></i> Approve
-                        </button>
-                      </td>
+                  {filteredPendingUsers.length > 0 ? (
+                    filteredPendingUsers.map(pendingUser => (
+                      <tr key={pendingUser._id}>
+                        <td>{pendingUser.name}</td>
+                        <td>{pendingUser.email}</td>
+                        <td>{pendingUser.phone}</td>
+                        <td>
+                          <span className={`role-badge role-${pendingUser.role}`}>
+                            {pendingUser.role === 'user' ? 'User' : 
+                            pendingUser.role === 'panel' ? 'Panel Member' : 
+                            pendingUser.role === 'sponsor' ? 'Sponsor' : 
+                            pendingUser.role}
+                          </span>
+                        </td>
+                        <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
+                        <td>
+                          <button 
+                            className="btn-approve" 
+                            onClick={() => handleApproveUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-check"></i> Approve
+                          </button>
+                          <button 
+                            className="btn-reject" 
+                            onClick={() => handleRejectUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-times"></i> Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-results">No users match this filter.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             ) : (
@@ -976,7 +1008,6 @@ function RegistrarDashboard() {
         <div className="main-content">{renderTabContent()}</div>
       </div>
 
-      {/* Request Details Modal */}
       {showModal && selectedRequest && !selectedUser && (
         <div className="modal-overlay">
           <div className="request-details-modal">
@@ -1011,7 +1042,6 @@ function RegistrarDashboard() {
                 <p>{selectedRequest.opportunity.attendance}</p>
               </div>
               
-              {/* Display the specific package the sponsor is interested in */}
               {selectedRequest.packageIndex !== undefined && 
                selectedRequest.opportunity.packages && 
                selectedRequest.opportunity.packages[selectedRequest.packageIndex] && (
@@ -1042,7 +1072,6 @@ function RegistrarDashboard() {
                 </>
               )}
               
-              {/* Display all packages if we're viewing sponsorship approvals or a package interest */}
               {(activeTab === 'sponsorshipApprovals' || selectedRequest.packageIndex !== undefined) && 
                selectedRequest.opportunity.packages && selectedRequest.opportunity.packages.length > 0 && (
                 <>
@@ -1094,7 +1123,6 @@ function RegistrarDashboard() {
                 </>
               )}
               
-              {/* Fund Allocation Section - Only show for sponsorship approvals */}
               {activeTab === 'sponsorshipApprovals' && selectedRequest.opportunity && selectedRequest.opportunity.packages && (
                 <div className="fund-allocation-section">
                   <h3>Fund Allocation for Packages</h3>
@@ -1200,7 +1228,6 @@ function RegistrarDashboard() {
         </div>
       )}
 
-      {/* User Profile Modal */}
       {showModal && selectedUser && (
         <div className="modal-overlay">
           <div className="profile-details-modal">
