@@ -44,6 +44,8 @@ function PanelDashboard() {
   const [approvedEvents, setApprovedEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [loadingApprovedEvents, setLoadingApprovedEvents] = useState(false);
+  const [approvedEventsError, setApprovedEventsError] = useState(null);
   
   const { user } = useSelector((state) => state.auth)
 
@@ -73,6 +75,10 @@ function PanelDashboard() {
     if (activeTab === 'userApprovals') {
       fetchPendingUsers();
     } else if (activeTab === 'fundingProposals') {
+      fetchApprovedEvents();
+    } else if (activeTab === 'approvedEvents') {
+      fetchApprovedEvents();
+    } else if (activeTab === 'createEvent') {
       fetchApprovedEvents();
     }
   }, [activeTab]);
@@ -233,9 +239,8 @@ function PanelDashboard() {
     }
   };
 
-  // Modify this function to fetch approved events
   const fetchApprovedEvents = async () => {
-    setLoadingEvents(true);
+    setLoadingApprovedEvents(true);
     try {
       const config = {
         headers: {
@@ -245,21 +250,56 @@ function PanelDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter to only include events with generalApproval.status === 'approved'
+      // Filter to only include events approved by registrar but not yet published
       const approvedEventsList = response.data.filter(
         opportunity => opportunity.generalApproval && 
-                      opportunity.generalApproval.status === 'approved'
+                     opportunity.generalApproval.status === 'approved' &&
+                     (!opportunity.publicationStatus || 
+                      opportunity.publicationStatus.status !== 'published')
       );
       
       setApprovedEvents(approvedEventsList);
-      setLoadingEvents(false);
+      setLoadingApprovedEvents(false);
     } catch (err) {
-      console.error('Error fetching approved events:', err);
-      setLoadingEvents(false);
+      setApprovedEventsError('Failed to fetch approved events');
+      setLoadingApprovedEvents(false);
     }
   };
 
-  // Add these functions to handle the event form
+  const handlePublishEvent = async (eventId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${eventId}/publish`, {}, config);
+      toast.success('Event published successfully and is now visible to users');
+      fetchApprovedEvents();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to publish event';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handlePostponeEvent = async (eventId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${eventId}/postpone`, {}, config);
+      toast.success('Event has been postponed');
+      fetchApprovedEvents();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to postpone event';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleEventFormChange = (e) => {
     const { name, value } = e.target
     setEventFormData({
@@ -322,7 +362,6 @@ function PanelDashboard() {
     }
   }
 
-  // Add this function to handle event selection
   const handleEventSelect = (e) => {
     const eventId = e.target.value;
     setSelectedEventId(eventId);
@@ -666,6 +705,63 @@ function PanelDashboard() {
             </form>
           </div>
         );
+      case 'approvedEvents':
+        return (
+          <div className="approved-events">
+            <h2>Approved Events</h2>
+            {loadingApprovedEvents ? (
+              <p className="panel-loading">Loading approved events...</p>
+            ) : approvedEventsError ? (
+              <p className="panel-error">{approvedEventsError}</p>
+            ) : approvedEvents.length > 0 ? (
+              <table className="panel-approval-table">
+                <thead>
+                  <tr>
+                    <th>Event Name</th>
+                    <th>Club</th>
+                    <th>Date</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvedEvents.map(event => (
+                    <tr key={event._id}>
+                      <td>{event.name}</td>
+                      <td>{event.club}</td>
+                      <td>{new Date(event.date).toLocaleDateString()}</td>
+                      <td>{event.location}</td>
+                      <td>
+                        <span className={`status-badge status-${event.publicationStatus?.status || 'unpublished'}`}>
+                          {event.publicationStatus?.status || 'Unpublished'}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          className="btn-approve" 
+                          onClick={() => handlePublishEvent(event._id)}
+                        >
+                          <i className="fas fa-check"></i> Publish
+                        </button>
+                        <button 
+                          className="btn-reject" 
+                          onClick={() => handlePostponeEvent(event._id)}
+                        >
+                          <i className="fas fa-pause"></i> Postpone
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="panel-no-requests">
+                <p>No approved events waiting for publication.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -698,6 +794,12 @@ function PanelDashboard() {
               onClick={() => setActiveTab('createEvent')}
             >
               <i className="fas fa-calendar-plus"></i> Create Event
+            </li>
+            <li
+              className={activeTab === 'approvedEvents' ? 'active' : ''}
+              onClick={() => setActiveTab('approvedEvents')}
+            >
+              <i className="fas fa-calendar-check"></i> Approved Events
             </li>
             {/* More menu items can be added here */}
           </ul>

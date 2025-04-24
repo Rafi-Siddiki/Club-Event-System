@@ -187,7 +187,25 @@ const opportunitySchema = mongoose.Schema({
             type: Boolean,
             default: false
         }
-    }]
+    }],
+    // Publication status
+    publicationStatus: {
+        status: {
+            type: String,
+            enum: ['unpublished', 'published', 'postponed'],
+            default: 'unpublished'
+        },
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        updatedAt: {
+            type: Date
+        },
+        comments: {
+            type: String
+        }
+    }
 }, {
     timestamps: true
 });
