@@ -60,6 +60,9 @@ const createOpportunity = asyncHandler(async (req, res) => {
         throw new Error('Please fill all required fields');
     }
 
+    // Determine if this is a sponsorship request or just an event
+    const isSponsorshipRequest = packages && packages.length > 0 && startingPrice > 0;
+
     const opportunity = await Opportunity.create({
         name,
         description,
@@ -71,7 +74,11 @@ const createOpportunity = asyncHandler(async (req, res) => {
         packages,
         image: image || '',
         contactPerson,
-        contactEmail
+        contactEmail,
+        // Set sponsorshipRequestApproval status based on whether packages exist
+        sponsorshipRequestApproval: isSponsorshipRequest ? 
+            { status: 'pending', updatedBy: req.user.id, updatedAt: Date.now() } : 
+            { status: 'none' }
     });
 
     res.status(201).json(opportunity);
@@ -703,6 +710,76 @@ const getInterestedPackages = asyncHandler(async (req, res) => {
     res.status(200).json(interestedPackages);
 });
 
+// @desc    Publish opportunity to users
+// @route   PUT /api/opportunities/:id/publish
+// @access  Private (Panel only)
+const publishOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a panel member
+    if (req.user.role !== 'panel') {
+        res.status(403);
+        throw new Error('Unauthorized. Only panel members can publish opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Check if opportunity is approved
+    if (!opportunity.generalApproval || opportunity.generalApproval.status !== 'approved') {
+        res.status(400);
+        throw new Error('This opportunity must be approved by a registrar before publishing');
+    }
+
+    // Update the opportunity with publication details
+    opportunity.publicationStatus = {
+        status: 'published',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event published to users'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been published and is now visible to users',
+        opportunity
+    });
+});
+
+// @desc    Postpone opportunity 
+// @route   PUT /api/opportunities/:id/postpone
+// @access  Private (Panel only)
+const postponeOpportunity = asyncHandler(async (req, res) => {
+    // Check if user is a panel member
+    if (req.user.role !== 'panel') {
+        res.status(403);
+        throw new Error('Unauthorized. Only panel members can postpone opportunities');
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) {
+        res.status(404);
+        throw new Error('Opportunity not found');
+    }
+
+    // Update the opportunity with postponement details
+    opportunity.publicationStatus = {
+        status: 'postponed',
+        updatedBy: req.user.id,
+        updatedAt: Date.now(),
+        comments: req.body.comments || 'Event postponed'
+    };
+
+    await opportunity.save();
+
+    res.status(200).json({
+        message: 'Event has been postponed',
+        opportunity
+    });
+});
+
 module.exports = {
     getOpportunities,
     getOpportunityById,
@@ -720,5 +797,7 @@ module.exports = {
     approveSponsorshipRequest,
     rejectSponsorshipRequest,
     createSponsorshipRequest,
-    getInterestedPackages
+    getInterestedPackages,
+    publishOpportunity,
+    postponeOpportunity
 };

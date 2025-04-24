@@ -40,6 +40,7 @@ function UserDashboard() {
     }
   }, [activeTab]);
 
+  // Modify your fetchOpportunities function
   const fetchOpportunities = async () => {
     setLoading(true);
     try {
@@ -48,11 +49,14 @@ function UserDashboard() {
           Authorization: `Bearer ${user.token}`,
         },
       });
-      // Filter to only show opportunities with general approval
-      const approvedOpportunities = response.data.filter(
-        opportunity => opportunity.generalApproval && opportunity.generalApproval.status === 'approved'
+      // Filter to only show opportunities with general approval AND published status
+      const publishedOpportunities = response.data.filter(
+        opportunity => opportunity.generalApproval && 
+                     opportunity.generalApproval.status === 'approved' &&
+                     opportunity.publicationStatus &&
+                     opportunity.publicationStatus.status === 'published'
       );
-      setOpportunities(approvedOpportunities);
+      setOpportunities(publishedOpportunities);
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch events');

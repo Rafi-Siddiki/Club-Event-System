@@ -39,11 +39,17 @@ function PanelDashboard() {
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState('fundingProposals')
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [filteredPendingUsers, setFilteredPendingUsers] = useState([]);
+  const [pendingUserRoleFilter, setPendingUserRoleFilter] = useState('all');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
   const [approvedEvents, setApprovedEvents] = useState([]);
+  const [eventsForSponsorship, setEventsForSponsorship] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [loadingApprovedEvents, setLoadingApprovedEvents] = useState(false);
+  const [approvedEventsError, setApprovedEventsError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all'); // Add this line
   
   const { user } = useSelector((state) => state.auth)
 
@@ -74,8 +80,18 @@ function PanelDashboard() {
       fetchPendingUsers();
     } else if (activeTab === 'fundingProposals') {
       fetchApprovedEvents();
+    } else if (activeTab === 'approvedEvents') {
+      fetchApprovedEvents();
+    } else if (activeTab === 'createEvent') {
+      fetchApprovedEvents();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (pendingUsers.length > 0) {
+      setFilteredPendingUsers(pendingUsers);
+    }
+  }, [pendingUsers]);
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -233,9 +249,36 @@ function PanelDashboard() {
     }
   };
 
-  // Modify this function to fetch approved events
+  const handleRejectUser = async (userId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/users/reject/${userId}`, {}, config);
+      toast.success('User rejected successfully');
+      
+      // Refresh the list
+      fetchPendingUsers();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject user';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handlePendingUserRoleFilter = (role) => {
+    setPendingUserRoleFilter(role);
+    if (role === 'all') {
+      setFilteredPendingUsers(pendingUsers);
+    } else {
+      setFilteredPendingUsers(pendingUsers.filter(user => user.role === role));
+    }
+  };
+
   const fetchApprovedEvents = async () => {
-    setLoadingEvents(true);
+    setLoadingApprovedEvents(true);
     try {
       const config = {
         headers: {
@@ -245,21 +288,77 @@ function PanelDashboard() {
       
       const response = await axios.get('/api/opportunities', config);
       
-      // Filter to only include events with generalApproval.status === 'approved'
+      // Filter to only include events approved by registrar 
       const approvedEventsList = response.data.filter(
         opportunity => opportunity.generalApproval && 
-                      opportunity.generalApproval.status === 'approved'
+                     opportunity.generalApproval.status === 'approved'
       );
       
+      // For the dropdown, filter events that:
+      // 1. Have no sponsorship request (status='none')
+      // 2. Are not published
+      const eventsForSponsorshipDropdown = approvedEventsList.filter(
+        opportunity => opportunity.sponsorshipRequestApproval.status === 'none' && 
+                      (!opportunity.publicationStatus || 
+                       opportunity.publicationStatus.status !== 'published')
+      );
+      
+      // For the publish list, include all approved events
       setApprovedEvents(approvedEventsList);
-      setLoadingEvents(false);
+      
+      // Set dropdown events
+      setEventsForSponsorship(eventsForSponsorshipDropdown);
+      setLoadingApprovedEvents(false);
     } catch (err) {
-      console.error('Error fetching approved events:', err);
-      setLoadingEvents(false);
+      setApprovedEventsError('Failed to fetch approved events');
+      setLoadingApprovedEvents(false);
     }
   };
 
-  // Add these functions to handle the event form
+  const handlePublishEvent = async (eventId) => {
+    try {
+      // First get the event to check its sponsorship status
+      const eventToPublish = approvedEvents.find(event => event._id === eventId);
+      
+      if (eventToPublish && 
+          eventToPublish.sponsorshipRequestApproval && 
+          eventToPublish.sponsorshipRequestApproval.status === 'pending') {
+        toast.error('Cannot publish event while sponsorship request is pending approval');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${eventId}/publish`, {}, config);
+      toast.success('Event published successfully and is now visible to users');
+      fetchApprovedEvents();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to publish event';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handlePostponeEvent = async (eventId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      
+      await axios.put(`/api/opportunities/${eventId}/postpone`, {}, config);
+      toast.success('Event has been postponed');
+      fetchApprovedEvents();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to postpone event';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleEventFormChange = (e) => {
     const { name, value } = e.target
     setEventFormData({
@@ -298,7 +397,7 @@ function PanelDashboard() {
 
       await axios.post('/api/opportunities', {
         ...eventFormData,
-        // Set empty packages array since this is just an event without sponsorship
+        // Set empty packages array and 0 starting price to indicate it's not a sponsorship request
         packages: [],
         startingPrice: 0
       }, config)
@@ -322,7 +421,6 @@ function PanelDashboard() {
     }
   }
 
-  // Add this function to handle event selection
   const handleEventSelect = (e) => {
     const eventId = e.target.value;
     setSelectedEventId(eventId);
@@ -363,6 +461,40 @@ function PanelDashboard() {
     }
   };
 
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status);
+  };
+
+  const getFilteredEvents = () => {
+    if (statusFilter === 'all') {
+      return approvedEvents;
+    }
+    
+    return approvedEvents.filter(event => {
+      const isPublished = 
+        event.publicationStatus && 
+        event.publicationStatus.status === 'published';
+      
+      const hasPendingSponsorshipRequest = 
+        event.sponsorshipRequestApproval && 
+        event.sponsorshipRequestApproval.status === 'pending';
+      
+      if (statusFilter === 'published' && isPublished) {
+        return true;
+      }
+      
+      if (statusFilter === 'pending' && hasPendingSponsorshipRequest) {
+        return true;
+      }
+      
+      if (statusFilter === 'ready' && !isPublished && !hasPendingSponsorshipRequest) {
+        return true;
+      }
+      
+      return false;
+    });
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'fundingProposals':
@@ -385,7 +517,7 @@ function PanelDashboard() {
                     required
                   >
                     <option value="">Select an event</option>
-                    {approvedEvents.map(event => (
+                    {eventsForSponsorship.map(event => (
                       <option key={event._id} value={event._id}>
                         {event.name} - {new Date(event.date).toLocaleDateString()}
                       </option>
@@ -503,6 +635,19 @@ function PanelDashboard() {
         return (
           <div className="panel-user-approvals">
             <h2>User Approval Requests</h2>
+            
+            {/* Add filter dropdown */}
+            <div className="filter-controls">
+              <select 
+                onChange={(e) => handlePendingUserRoleFilter(e.target.value)}
+                value={pendingUserRoleFilter}
+              >
+                <option value="all">All Users</option>
+                <option value="user">Regular Users</option>
+                <option value="sponsor">Sponsors</option>
+              </select>
+            </div>
+            
             {loadingUsers ? (
               <p className="panel-loading">Loading users...</p>
             ) : userError ? (
@@ -520,23 +665,35 @@ function PanelDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingUsers.map(pendingUser => (
-                    <tr key={pendingUser._id}>
-                      <td>{pendingUser.name}</td>
-                      <td>{pendingUser.email}</td>
-                      <td>{pendingUser.phone}</td>
-                      <td>{pendingUser.role}</td>
-                      <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
-                      <td>
-                        <button 
-                          className="panel-approve-btn" 
-                          onClick={() => handleApproveUser(pendingUser._id)}
-                        >
-                          Approve
-                        </button>
-                      </td>
+                  {filteredPendingUsers.length > 0 ? (
+                    filteredPendingUsers.map(pendingUser => (
+                      <tr key={pendingUser._id}>
+                        <td>{pendingUser.name}</td>
+                        <td>{pendingUser.email}</td>
+                        <td>{pendingUser.phone}</td>
+                        <td>{pendingUser.role}</td>
+                        <td>{pendingUser.club || pendingUser.company || 'N/A'}</td>
+                        <td>
+                          <button 
+                            className="panel-approve-btn" 
+                            onClick={() => handleApproveUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-check"></i> Approve
+                          </button>
+                          <button 
+                            className="panel-reject-btn" 
+                            onClick={() => handleRejectUser(pendingUser._id)}
+                          >
+                            <i className="fas fa-times"></i> Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-results">No users match this filter.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             ) : (
@@ -666,6 +823,119 @@ function PanelDashboard() {
             </form>
           </div>
         );
+      case 'approvedEvents':
+        return (
+          <div className="approved-events">
+            <h2>Approved Events</h2>
+            
+            {/* Add status filter dropdown */}
+            <div className="filter-controls">
+              <label>Filter by Status: </label>
+              <select 
+                onChange={(e) => handleStatusFilter(e.target.value)}
+                value={statusFilter}
+                className="status-filter"
+              >
+                <option value="all">All Statuses</option>
+                <option value="ready">Ready to Publish</option>
+                <option value="pending">Awaiting Sponsorship Approval</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+            
+            {loadingApprovedEvents ? (
+              <p className="panel-loading">Loading approved events...</p>
+            ) : approvedEventsError ? (
+              <p className="panel-error">{approvedEventsError}</p>
+            ) : approvedEvents.length > 0 ? (
+              <table className="panel-approval-table">
+                <thead>
+                  <tr>
+                    <th>Event Name</th>
+                    <th>Club</th>
+                    <th>Date</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredEvents().length > 0 ? (
+                    getFilteredEvents().map(event => {
+                      // Determine event status and whether publish button should be enabled
+                      const hasPendingSponsorshipRequest = 
+                        event.sponsorshipRequestApproval && 
+                        event.sponsorshipRequestApproval.status === 'pending';
+                      
+                      const isPublished = 
+                        event.publicationStatus && 
+                        event.publicationStatus.status === 'published';
+                      
+                      let statusText = 'Ready to Publish';
+                      let statusClass = 'status-approved';
+                      
+                      if (isPublished) {
+                        statusText = 'Published';
+                        statusClass = 'status-published';
+                      } else if (hasPendingSponsorshipRequest) {
+                        statusText = 'Awaiting Sponsorship Approval';
+                        statusClass = 'status-pending';
+                      }
+                      
+                      return (
+                        <tr key={event._id}>
+                          <td>{event.name}</td>
+                          <td>{event.club}</td>
+                          <td>{new Date(event.date).toLocaleDateString()}</td>
+                          <td>{event.location}</td>
+                          <td>
+                            <span className={`status-badge ${statusClass}`}>
+                              {statusText}
+                            </span>
+                          </td>
+                          <td>
+                            {isPublished ? (
+                              <button className="btn-disabled" disabled>
+                                <i className="fas fa-check"></i> Published
+                              </button>
+                            ) : hasPendingSponsorshipRequest ? (
+                              <button className="btn-disabled" disabled>
+                                <i className="fas fa-clock"></i> Awaiting Approval
+                              </button>
+                            ) : (
+                              <button 
+                                className="btn-approve" 
+                                onClick={() => handlePublishEvent(event._id)}
+                              >
+                                <i className="fas fa-check"></i> Publish
+                              </button>
+                            )}
+                            {!isPublished && !hasPendingSponsorshipRequest && (
+                              <button 
+                                className="btn-reject" 
+                                onClick={() => handlePostponeEvent(event._id)}
+                              >
+                                <i className="fas fa-pause"></i> Postpone
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-results">No events match this filter.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <div className="panel-no-requests">
+                <p>No approved events waiting for publication.</p>
+              </div>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -698,6 +968,12 @@ function PanelDashboard() {
               onClick={() => setActiveTab('createEvent')}
             >
               <i className="fas fa-calendar-plus"></i> Create Event
+            </li>
+            <li
+              className={activeTab === 'approvedEvents' ? 'active' : ''}
+              onClick={() => setActiveTab('approvedEvents')}
+            >
+              <i className="fas fa-calendar-check"></i> Approved Events
             </li>
             {/* More menu items can be added here */}
           </ul>
