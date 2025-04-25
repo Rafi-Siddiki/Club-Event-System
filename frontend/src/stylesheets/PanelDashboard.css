@@ -473,3 +473,54 @@
     padding: 15px;
   }
 }
+
+.announcements-section form {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.announcements-section .form-group {
+  margin-bottom: 20px;
+}
+
+.announcements-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.announcements-section select,
+.announcements-section textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.announcements-section textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.announcements-section .submit-btn {
+  background: var(--primary);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.announcements-section .submit-btn:hover {
+  background: var(--primary-dark);
+}
+
+.announcements-section .submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}

@@ -704,6 +704,118 @@
   color: #333;
 }
 
+/* Enhanced Announcement Styles */
+.announcements-section {
+  padding: 20px;
+}
+
+.announcements-section ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.announcements-section li {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.announcements-section li:hover {
+  transform: translateY(-5px) rotateX(2deg);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.announcements-section li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: 4px 4px 0 0;
+}
+
+.announcements-section li p {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.announcements-section li p:first-child {
+  color: var(--primary);
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.announcements-section li small {
+  display: block;
+  margin-top: 15px;
+  color: #666;
+  font-size: 0.85em;
+  text-align: right;
+}
+
+.announcements-section h2 {
+  color: var(--primary);
+  margin-bottom: 30px;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.announcements-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+/* Loading state animation */
+.announcements-section p:only-child {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+
+@keyframes card-float {
+  0% {
+    transform: translateY(0) rotateX(0);
+  }
+  50% {
+    transform: translateY(-5px) rotateX(2deg);
+  }
+  100% {
+    transform: translateY(0) rotateX(0);
+  }
+}
+
+.announcements-section li:hover {
+  animation: card-float 3s ease infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .announcements-section ul {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
   .dashboard-container {

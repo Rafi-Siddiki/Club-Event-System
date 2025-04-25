@@ -5,6 +5,7 @@ import axios from 'axios';
 import '../stylesheets/ViewMyProfile.css';
 import '../stylesheets/RegistrarDashboard.css';
 import { toast } from 'react-toastify';
+import '../stylesheets/AnnouncementCard.css';
 
 function RegistrarDashboard() {
   const navigate = useNavigate();
@@ -42,6 +43,8 @@ function RegistrarDashboard() {
   const [packageAllocations, setPackageAllocations] = useState([]);
   const [fundAllocationError, setFundAllocationError] = useState(null);
   const [allocatedFunds, setAllocatedFunds] = useState(0);
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
 
   useEffect(() => {
     document.title = 'Registrar Dashboard';
@@ -65,6 +68,8 @@ function RegistrarDashboard() {
       fetchPendingSponsorships();
     } else if (activeTab === 'showProfiles') {
       fetchApprovedUsers();
+    } else if (activeTab === 'announcements') {
+      fetchAnnouncements();
     }
   }, [activeTab]);
 
@@ -248,6 +253,44 @@ function RegistrarDashboard() {
     } catch (err) {
       setUserError('Failed to fetch approved users');
       setLoadingUsers(false);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const response = await axios.get('/api/announcements', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      // Log the response to check the data structure
+      console.log('Announcements:', response.data);
+      const populatedAnnouncements = await Promise.all(
+        response.data.map(async (announcement) => {
+          if (!announcement.eventId?.name) {
+            const eventResponse = await axios.get(`/api/opportunities/${announcement.eventId}`, {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+              },
+            });
+            return {
+              ...announcement,
+              eventId: {
+                ...announcement.eventId,
+                name: eventResponse.data.name,
+              },
+            };
+          }
+          return announcement;
+        })
+      );
+      setAnnouncements(populatedAnnouncements);
+      setLoadingAnnouncements(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to fetch announcements');
+      setLoadingAnnouncements(false);
     }
   };
 
@@ -958,6 +1001,27 @@ function RegistrarDashboard() {
             )}
           </div>
         );
+      case 'announcements':
+        return (
+          <div className="announcements-section">
+            <h2>Event Announcements</h2>
+            {loadingAnnouncements ? (
+              <p>Loading announcements...</p>
+            ) : announcements.length > 0 ? (
+              <ul>
+                {announcements.map((announcement) => (
+                  <li key={announcement._id}>
+                    <p><strong>Event:</strong> {announcement.eventId?.name || 'Event details unavailable'}</p>
+                    <p>{announcement.message}</p>
+                    <small>Posted on: {new Date(announcement.createdAt).toLocaleString()}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No announcements available.</p>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -1002,6 +1066,12 @@ function RegistrarDashboard() {
               onClick={() => setActiveTab('showProfiles')}
             >
               <i className="fas fa-id-card"></i> Show Profiles
+            </li>
+            <li
+              className={activeTab === 'announcements' ? 'active' : ''}
+              onClick={() => setActiveTab('announcements')}
+            >
+              <i className="fas fa-bullhorn"></i> Announcements
             </li>
           </ul>
         </div>
