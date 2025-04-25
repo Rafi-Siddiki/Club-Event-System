@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import '../stylesheets/UserDashboard.css'; // Reuse sponsor dashboard styles
 import { toast } from 'react-toastify';
+import '../stylesheets/AnnouncementCard.css';
 
 function UserDashboard() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ function UserDashboard() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     // Set page title
@@ -37,6 +39,8 @@ function UserDashboard() {
       fetchOpportunities();
     } else if (activeTab === 'yourEvents') {
       fetchAttendingEvents();
+    } else if (activeTab === 'announcements') {
+      fetchAnnouncements();
     }
   }, [activeTab]);
 
@@ -76,6 +80,44 @@ function UserDashboard() {
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch events you are attending');
+      setLoading(false);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('/api/announcements', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      // Log the response to check the data structure
+      console.log('Announcements:', response.data);
+      const populatedAnnouncements = await Promise.all(
+        response.data.map(async (announcement) => {
+          if (!announcement.eventId?.name) {
+            const eventResponse = await axios.get(`/api/opportunities/${announcement.eventId}`, {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+              },
+            });
+            return {
+              ...announcement,
+              eventId: {
+                ...announcement.eventId,
+                name: eventResponse.data.name,
+              },
+            };
+          }
+          return announcement;
+        })
+      );
+      setAnnouncements(populatedAnnouncements);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch announcements');
       setLoading(false);
     }
   };
@@ -240,6 +282,27 @@ function UserDashboard() {
             )}
           </div>
         );
+      case 'announcements':
+        return (
+          <div className="announcements-section">
+            <h2>Event Announcements</h2>
+            {loading ? (
+              <p>Loading announcements...</p>
+            ) : announcements.length > 0 ? (
+              <ul>
+                {announcements.map((announcement) => (
+                  <li key={announcement._id}>
+                    <p><strong>Event:</strong> {announcement.eventId?.name || 'Event details unavailable'}</p>
+                    <p>{announcement.message}</p>
+                    <small>Posted on: {new Date(announcement.createdAt).toLocaleString()}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No announcements available.</p>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -266,6 +329,12 @@ function UserDashboard() {
               onClick={() => setActiveTab('yourEvents')}
             >
               <i className="fas fa-user-check"></i> Your Events
+            </li>
+            <li
+              className={activeTab === 'announcements' ? 'active' : ''}
+              onClick={() => setActiveTab('announcements')}
+            >
+              <i className="fas fa-bullhorn"></i> Announcements
             </li>
           </ul>
         </div>

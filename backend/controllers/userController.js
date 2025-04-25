@@ -238,55 +238,33 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // @route PUT /api/users/:id
 // @access Private (registrar or owner)
 const updateUser = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.id);
+  const user = await User.findById(req.params.id);
 
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
-    }
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
 
-    // Check authorization - only registrar or the user themselves can update
-    if (req.user.role !== 'registrar' && req.user.id !== req.params.id) {
-        res.status(403);
-        throw new Error('Not authorized to update this profile');
-    }
+  // Check authorization - only registrar or the user themselves can update
+  if (req.user.role !== 'registrar' && req.user.id !== req.params.id) {
+    res.status(403);
+    throw new Error('Not authorized to update this profile');
+  }
 
-    // Update user fields based on role
-    const { name, email, phone, club, company, industry, department, position } = req.body;
-    
-    // Update basic info for all users
-    user.name = name || user.name;
-    user.email = email || user.email;
-    user.phone = phone || user.phone;
-    
-    // Update role-specific fields
-    if (user.role === 'user') {
-        user.club = club !== undefined ? club : user.club;
-        user.position = position !== undefined ? position : user.position;
-    } else if (user.role === 'sponsor') {
-        user.company = company !== undefined ? company : user.company;
-        user.industry = industry !== undefined ? industry : user.industry;
-        user.position = position !== undefined ? position : user.position;
-    } else if (user.role === 'panel') {
-        user.department = department !== undefined ? department : user.department;
-        user.position = position !== undefined ? position : user.position;
-    }
+  const { name, email, phone } = req.body;
 
-    const updatedUser = await user.save();
+  user.name = name || user.name;
+  user.email = email || user.email;
+  user.phone = phone || user.phone;
 
-    res.status(200).json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        phone: updatedUser.phone,
-        club: updatedUser.club,
-        company: updatedUser.company,
-        industry: updatedUser.industry,
-        department: updatedUser.department,
-        position: updatedUser.position,
-        role: updatedUser.role,
-        approved: updatedUser.approved
-    });
+  const updatedUser = await user.save();
+
+  res.status(200).json({
+    _id: updatedUser._id,
+    name: updatedUser.name,
+    email: updatedUser.email,
+    phone: updatedUser.phone,
+  });
 });
 
 module.exports = {

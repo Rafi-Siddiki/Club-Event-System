@@ -5,6 +5,7 @@ import axios from 'axios';
 import '../stylesheets/SponsorDashboard.css';
 import '../stylesheets/ViewMyProfile.css';
 import { toast } from 'react-toastify';
+import '../stylesheets/AnnouncementCard.css';
 
 function SponsorDashboard() {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ function SponsorDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [interestedPackages, setInterestedPackages] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
 
   useEffect(() => {
     // Set page title
@@ -35,6 +38,12 @@ function SponsorDashboard() {
     // Fetch opportunities when the component mounts or the active tab changes to funding proposals
     if (activeTab === 'fundingProposals') {
       fetchOpportunities();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'announcements') {
+      fetchAnnouncements();
     }
   }, [activeTab]);
 
@@ -63,6 +72,44 @@ function SponsorDashboard() {
     } catch (err) {
       setError('Failed to fetch funding opportunities');
       setLoading(false);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const response = await axios.get('/api/announcements', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      // Log the response to check the data structure
+      console.log('Announcements:', response.data);
+      const populatedAnnouncements = await Promise.all(
+        response.data.map(async (announcement) => {
+          if (!announcement.eventId?.name) {
+            const eventResponse = await axios.get(`/api/opportunities/${announcement.eventId}`, {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+              },
+            });
+            return {
+              ...announcement,
+              eventId: {
+                ...announcement.eventId,
+                name: eventResponse.data.name,
+              },
+            };
+          }
+          return announcement;
+        })
+      );
+      setAnnouncements(populatedAnnouncements);
+      setLoadingAnnouncements(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to fetch announcements');
+      setLoadingAnnouncements(false);
     }
   };
 
@@ -347,6 +394,27 @@ function SponsorDashboard() {
             )}
           </div>
         );
+      case 'announcements':
+        return (
+          <div className="announcements-section">
+            <h2>Event Announcements</h2>
+            {loadingAnnouncements ? (
+              <p>Loading announcements...</p>
+            ) : announcements.length > 0 ? (
+              <ul>
+                {announcements.map((announcement) => (
+                  <li key={announcement._id}>
+                    <p><strong>Event:</strong> {announcement.eventId?.name || 'Event details unavailable'}</p>
+                    <p>{announcement.message}</p>
+                    <small>Posted on: {new Date(announcement.createdAt).toLocaleString()}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No announcements available.</p>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -367,6 +435,12 @@ function SponsorDashboard() {
               onClick={() => setActiveTab('fundingProposals')}
             >
               <i className="fas fa-money-check"></i> Funding Opportunities
+            </li>
+            <li
+              className={activeTab === 'announcements' ? 'active' : ''}
+              onClick={() => setActiveTab('announcements')}
+            >
+              <i className="fas fa-bullhorn"></i> Announcements
             </li>
             {/* More menu items can be added here */}
           </ul>

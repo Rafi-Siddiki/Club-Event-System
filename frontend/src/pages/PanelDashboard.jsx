@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import axios from 'axios'
 import { toast } from 'react-toastify'; // Make sure this is imported
+import '../stylesheets/AnnouncementCard.css';
 
 function PanelDashboard() {
   const [formData, setFormData] = useState({
@@ -50,7 +51,10 @@ function PanelDashboard() {
   const [loadingApprovedEvents, setLoadingApprovedEvents] = useState(false);
   const [approvedEventsError, setApprovedEventsError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all'); // Add this line
-  
+  const [announcementForm, setAnnouncementForm] = useState({ eventId: '', message: '' }); // Add this line
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+
   const { user } = useSelector((state) => state.auth)
 
   useEffect(() => {
@@ -84,6 +88,8 @@ function PanelDashboard() {
       fetchApprovedEvents();
     } else if (activeTab === 'createEvent') {
       fetchApprovedEvents();
+    } else if (activeTab === 'announcements') {
+      fetchAnnouncements();
     }
   }, [activeTab]);
 
@@ -493,6 +499,72 @@ function PanelDashboard() {
       
       return false;
     });
+  };
+
+  const handlePostAnnouncement = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      await axios.post('/api/announcements', announcementForm, config);
+
+      setSuccess(true);
+      setAnnouncementForm({ eventId: '', message: '' });
+
+      // Fetch announcements after posting
+      fetchAnnouncements();
+    } catch (error) {
+      setError(error.response?.data?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const response = await axios.get('/api/announcements', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      // Log the response to check the data structure
+      console.log('Announcements:', response.data);
+      const populatedAnnouncements = await Promise.all(
+        response.data.map(async (announcement) => {
+          if (!announcement.eventId?.name) {
+            const eventResponse = await axios.get(`/api/opportunities/${announcement.eventId}`, {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+              },
+            });
+            return {
+              ...announcement,
+              eventId: {
+                ...announcement.eventId,
+                name: eventResponse.data.name,
+              },
+            };
+          }
+          return announcement;
+        })
+      );
+      setAnnouncements(populatedAnnouncements);
+      setLoadingAnnouncements(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to fetch announcements');
+      setLoadingAnnouncements(false);
+    }
   };
 
   const renderTabContent = () => {
@@ -936,6 +1008,59 @@ function PanelDashboard() {
             )}
           </div>
         );
+      case 'announcements':
+        return (
+          <div className="announcements-section">
+            <h2>Post Announcements</h2>
+            <form onSubmit={handlePostAnnouncement}>
+              <div className="form-group">
+                <label>Select Event</label>
+                <select
+                  name="eventId"
+                  value={announcementForm.eventId}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, eventId: e.target.value })}
+                  required
+                >
+                  <option value="">Select an event</option>
+                  {approvedEvents.map((event) => (
+                    <option key={event._id} value={event._id}>
+                      {event.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Announcement Message</label>
+                <textarea
+                  name="message"
+                  value={announcementForm.message}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                  required
+                ></textarea>
+              </div>
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Posting...' : 'Post Announcement'}
+              </button>
+            </form>
+            
+            <h2>Event Announcements</h2>
+            {loadingAnnouncements ? (
+              <p>Loading announcements...</p>
+            ) : announcements.length > 0 ? (
+              <ul>
+                {announcements.map((announcement) => (
+                  <li key={announcement._id}>
+                    <p><strong>Event:</strong> {announcement.eventId?.name || 'Event details unavailable'}</p>
+                    <p>{announcement.message}</p>
+                    <small>Posted on: {new Date(announcement.createdAt).toLocaleString()}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No announcements available.</p>
+            )}
+          </div>
+        );
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -974,6 +1099,12 @@ function PanelDashboard() {
               onClick={() => setActiveTab('approvedEvents')}
             >
               <i className="fas fa-calendar-check"></i> Approved Events
+            </li>
+            <li
+              className={activeTab === 'announcements' ? 'active' : ''}
+              onClick={() => setActiveTab('announcements')}
+            >
+              <i className="fas fa-bullhorn"></i> Announcements
             </li>
             {/* More menu items can be added here */}
           </ul>

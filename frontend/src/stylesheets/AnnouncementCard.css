@@ -1,0 +1,102 @@
+.announcements-section {
+  padding: 20px;
+  perspective: 1000px;
+}
+
+.announcements-section ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.announcements-section li {
+  background: linear-gradient(145deg, #ffffff, #f5f5f5);
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.1),
+              -5px -5px 15px rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+  transform-style: preserve-3d;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.announcements-section li:hover {
+  transform: translateY(-5px) rotateX(5deg);
+  box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.15),
+              -8px -8px 20px rgba(255, 255, 255, 0.9);
+}
+
+.announcements-section li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: 15px 15px 0 0;
+}
+
+.announcements-section li p {
+  margin: 12px 0;
+  line-height: 1.6;
+  position: relative;
+  transform: translateZ(20px);
+}
+
+.announcements-section li p:first-child {
+  color: var(--primary);
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.announcements-section li small {
+  display: block;
+  margin-top: 15px;
+  color: #666;
+  font-size: 0.85em;
+  text-align: right;
+  font-style: italic;
+  transform: translateZ(15px);
+}
+
+.announcements-section h2 {
+  color: var(--primary);
+  margin-bottom: 30px;
+  position: relative;
+  padding-bottom: 10px;
+  font-size: 1.8em;
+}
+
+.announcements-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+@keyframes float {
+  0% { transform: translateY(0) rotateX(0); }
+  50% { transform: translateY(-5px) rotateX(5deg); }
+  100% { transform: translateY(0) rotateX(0); }
+}
+
+.announcements-section li:hover {
+  animation: float 3s ease infinite;
+}
+
+@media (max-width: 768px) {
+  .announcements-section ul {
+    grid-template-columns: 1fr;
+  }
+}
