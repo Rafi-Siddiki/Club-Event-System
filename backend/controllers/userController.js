@@ -45,7 +45,6 @@ const registerUser = asyncHandler(async (req, res) => {
             club: user.club,
             role: user.role,
             approved: user.approved,
-            token: generateToken(user._id), // Generate JWT token
         });
     } else {
         res.status(400);
@@ -97,7 +96,6 @@ const registerSponsor = asyncHandler(async (req, res) => {
             company: user.company,
             cevent: user.cevent,
             approved: user.approved,
-            token: generateToken(user._id), // Generate JWT token
         });
     } else {
         res.status(400);

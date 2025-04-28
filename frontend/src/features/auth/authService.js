@@ -6,22 +6,12 @@ const API_URL = '/api/users/'
 
 const register = async (userData) => {
   const response = await axios.post(API_URL + 'reguser', userData)
-
-  if (response.data) {
-    localStorage.setItem('user', JSON.stringify(response.data))
-  }
-
   return response.data
 }
 
 // sponsor Register user
 const registerSponsor = async (userData) => {
   const response = await axios.post(API_URL + 'regsponsor', userData)
-
-  if (response.data) {
-    localStorage.setItem('user', JSON.stringify(response.data))
-  }
-
   return response.data
 }
 
