@@ -19,14 +19,15 @@ function SponsorDashboard() {
   const [interestedPackages, setInterestedPackages] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [sponsorshipRecords, setSponsorshipRecords] = useState({ accepted: [], rejected: [] });
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [recordsError, setRecordsError] = useState(null);
 
   useEffect(() => {
-    // Set page title
     document.title = 'Sponsor Dashboard';
   }, []);
 
   useEffect(() => {
-    // Protect this route - only sponsors can access
     if (!user) {
       navigate('/login');
     } else if (user.role !== 'sponsor') {
@@ -35,15 +36,12 @@ function SponsorDashboard() {
   }, [user, navigate]);
 
   useEffect(() => {
-    // Fetch opportunities when the component mounts or the active tab changes to funding proposals
     if (activeTab === 'fundingProposals') {
       fetchOpportunities();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'announcements') {
+    } else if (activeTab === 'announcements') {
       fetchAnnouncements();
+    } else if (activeTab === 'sponsorshipRecords') {
+      fetchSponsorshipRecords();
     }
   }, [activeTab]);
 
@@ -56,18 +54,17 @@ function SponsorDashboard() {
         },
       });
       setOpportunities(response.data);
-      
-      // Fetch the user's interested packages
+
       const interestResponse = await axios.get('/api/opportunities/interested-packages', {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
       });
-      
+
       if (interestResponse.data) {
         setInterestedPackages(interestResponse.data);
       }
-      
+
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch funding opportunities');
@@ -83,8 +80,6 @@ function SponsorDashboard() {
           Authorization: `Bearer ${user.token}`,
         },
       });
-      // Log the response to check the data structure
-      console.log('Announcements:', response.data);
       const populatedAnnouncements = await Promise.all(
         response.data.map(async (announcement) => {
           if (!announcement.eventId?.name) {
@@ -113,6 +108,110 @@ function SponsorDashboard() {
     }
   };
 
+  const fetchSponsorshipRecords = async () => {
+    if (!user?.token) return;
+    setLoadingRecords(true);
+    setRecordsError(null);
+    try {
+      // Get the records from the API
+      const response = await axios.get('/api/opportunities/my-records', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      
+      // Get the API response data
+      let recordsData = response.data;
+      
+      // If we have opportunities data, ensure it's reflected in the records
+      if (opportunities.length > 0) {
+        // Find accepted opportunities that might not be in the API response
+        const acceptedOpportunities = opportunities.filter(opp => 
+          isApprovedForEntireProposal(opp) || 
+          (opp.packages && opp.packages.some((_, index) => isApprovedForPackage(opp, index)))
+        );
+        
+        // Find rejected opportunities that might not be in the API response
+        const rejectedOpportunities = opportunities.filter(opp =>
+          isRejectedForEntireProposal(opp) || 
+          (opp.packages && opp.packages.some((_, index) => isRejectedForPackage(opp, index)))
+        );
+        
+        // Process accepted opportunities to add to records if not already there
+        const additionalAccepted = acceptedOpportunities
+          .filter(opp => !recordsData.accepted.some(record => record._id === opp._id))
+          .map(opp => {
+            let detail = 'General Proposal';
+            if (opp.packages) {
+              const approvedPackages = opp.packages
+                .filter((_, index) => isApprovedForPackage(opp, index))
+                .map((pkg, index) => pkg.name || `Package ${index + 1}`);
+              if (approvedPackages.length > 0) {
+                detail = `Package(s): ${approvedPackages.join(', ')}`;
+              }
+            }
+            return {
+              _id: opp._id,
+              name: opp.name,
+              date: opp.date,
+              status: 'Accepted',
+              detail: detail
+            };
+          });
+
+        // Process rejected opportunities to add to records if not already there
+        const additionalRejected = rejectedOpportunities
+          .filter(opp => !recordsData.rejected.some(record => record._id === opp._id))
+          .map(opp => {
+            let detail = 'General Proposal';
+            if (opp.packages) {
+              const rejectedPackages = opp.packages
+                .filter((_, index) => isRejectedForPackage(opp, index))
+                .map((pkg, index) => pkg.name || `Package ${index + 1}`);
+              if (rejectedPackages.length > 0) {
+                detail = `Package(s): ${rejectedPackages.join(', ')}`;
+              }
+            }
+            return {
+              _id: opp._id,
+              name: opp.name,
+              date: opp.date,
+              status: 'Rejected',
+              detail: detail
+            };
+          });
+
+        // Add additional records to the API response data
+        if (additionalAccepted.length > 0) {
+          recordsData = {
+            ...recordsData,
+            accepted: [...recordsData.accepted, ...additionalAccepted]
+          };
+        }
+        
+        if (additionalRejected.length > 0) {
+          recordsData = {
+            ...recordsData,
+            rejected: [...recordsData.rejected, ...additionalRejected]
+          };
+        }
+        
+        console.log(`Added ${additionalAccepted.length} accepted and ${additionalRejected.length} rejected opportunities to records`);
+      }
+      
+      // Set the records in state
+      setSponsorshipRecords(recordsData);
+      
+    } catch (err) {
+      console.error('Failed to fetch sponsorship records:', err);
+      const message = err.response?.data?.message || 'Failed to fetch sponsorship records. Please try again later.';
+      setRecordsError(message);
+      toast.error(message);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
+
   const handleViewDetails = (opportunity) => {
     setSelectedOpportunity(opportunity);
     setShowModal(true);
@@ -123,7 +222,18 @@ function SponsorDashboard() {
     setSelectedOpportunity(null);
   };
 
-  // Handle expressing interest in a proposal
+  const logRejectionData = (opportunity) => {
+    if (opportunity && opportunity.sponsorshipContributionApproval && 
+        opportunity.sponsorshipContributionApproval.status === 'declined') {
+      console.log("Found declined opportunity:", {
+        opportunityId: opportunity._id,
+        opportunityName: opportunity.name,
+        user: user?._id,
+        rejectedSponsorId: opportunity.sponsorshipContributionApproval.rejectedSponsorId
+      });
+    }
+  };
+
   const handleExpressInterest = async (opportunityId) => {
     try {
       const config = {
@@ -131,11 +241,10 @@ function SponsorDashboard() {
           Authorization: `Bearer ${user.token}`,
         },
       };
-      
+
       await axios.post(`/api/opportunities/${opportunityId}/interest`, {}, config);
       toast.success('Interest expressed successfully. Your request will be reviewed by a registrar.');
-      
-      // Refresh the opportunities list
+
       fetchOpportunities();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to express interest';
@@ -143,7 +252,6 @@ function SponsorDashboard() {
     }
   };
 
-  // Handle expressing interest in a specific package
   const handleExpressInterestInPackage = async (opportunityId, packageIndex) => {
     try {
       const config = {
@@ -151,20 +259,18 @@ function SponsorDashboard() {
           Authorization: `Bearer ${user.token}`,
         },
       };
-      
+
       await axios.post(`/api/opportunities/${opportunityId}/interest`, { 
         packageIndex 
       }, config);
-      
-      // Update local state to immediately reflect the interest
+
       setInterestedPackages([
         ...interestedPackages,
         { opportunityId, packageIndex }
       ]);
-      
+
       toast.success('Interest expressed in this sponsorship package. Your request will be reviewed by a registrar.');
-      
-      // Refresh the opportunities list
+
       fetchOpportunities();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to express interest in package';
@@ -172,7 +278,6 @@ function SponsorDashboard() {
     }
   };
 
-  // Check if user has already expressed interest
   const hasExpressedInterest = (opportunity) => {
     return user && 
            user._id && 
@@ -181,7 +286,6 @@ function SponsorDashboard() {
            opportunity.interestedSponsors.includes(user._id);
   };
 
-  // Check if user has expressed interest in a specific package
   const hasExpressedInterestInPackage = (opportunityId, packageIndex) => {
     if (!user || !user._id) return false;
     return interestedPackages.some(
@@ -189,7 +293,6 @@ function SponsorDashboard() {
     );
   };
 
-  // Check if the current sponsor is approved for the entire proposal
   const isApprovedForEntireProposal = (opportunity) => {
     if (!user || !user._id) return false;
     return opportunity.sponsorshipContributionApproval && 
@@ -197,11 +300,42 @@ function SponsorDashboard() {
            opportunity.sponsorshipContributionApproval.approvedSponsorId === user._id;
   };
 
-  // Check if the current user is approved for a specific package
+  const isRejectedForEntireProposal = (opportunity) => {
+    if (!user || !user._id) return false;
+
+    if (opportunity.sponsorshipContributionApproval && 
+        opportunity.sponsorshipContributionApproval.status === 'declined') {
+      if (opportunity.sponsorshipContributionApproval.rejectedSponsorId) {
+        try {
+          const rejectedId = String(opportunity.sponsorshipContributionApproval.rejectedSponsorId);
+          const currentUserId = String(user._id);
+
+          if (rejectedId === currentUserId) {
+            return true;
+          }
+        } catch (e) {
+          console.error("Error comparing IDs:", e);
+        }
+      }
+    }
+
+    return opportunity.rejectedSponsorsNotifications && 
+           opportunity.rejectedSponsorsNotifications.some(notification => {
+             if (!notification.sponsorId) return false;
+
+             try {
+               return String(notification.sponsorId) === String(user._id) && 
+                      notification.packageIndex === -1;
+             } catch (e) {
+               console.error("Error comparing notification IDs:", e);
+               return false;
+             }
+           });
+  };
+
   const isApprovedForPackage = (opportunity, packageIndex) => {
-    // If sponsor is approved for entire proposal, they're approved for all packages
     if (isApprovedForEntireProposal(opportunity)) return true;
-    
+
     if (!user || !user._id) return false;
     return opportunity.approvedPackageSponsors && 
            opportunity.approvedPackageSponsors.some(
@@ -210,7 +344,6 @@ function SponsorDashboard() {
            );
   };
 
-  // Check if the current user's interest was rejected for a specific package
   const isRejectedForPackage = (opportunity, packageIndex) => {
     if (!user || !user._id) return false;
     return opportunity.rejectedSponsorsNotifications && 
@@ -220,7 +353,6 @@ function SponsorDashboard() {
            );
   };
 
-  // Check if a package is already taken by another sponsor
   const isPackageAlreadyTaken = (opportunity, packageIndex) => {
     if (!user || !user._id) return false;
     return opportunity.approvedPackageSponsors && 
@@ -230,66 +362,48 @@ function SponsorDashboard() {
            );
   };
 
-  // Check if all packages in the opportunity are available for expressing interest
-  // If any package is in a state other than "available to express interest", return false
   const areAllPackagesAvailableForInterest = (opportunity) => {
-    if (!user || !user._id) return false; // If no user, don't allow expressing interest
-    
-    // If this entire proposal is already approved for someone (either this sponsor or another)
+    if (!user || !user._id) return false;
+
     if (opportunity.sponsorshipContributionApproval && 
         opportunity.sponsorshipContributionApproval.status === 'approved') {
-      // If this sponsor is approved for the whole proposal, they can't express interest again
       if (opportunity.sponsorshipContributionApproval.approvedSponsorId === user._id) {
         return false;
       }
-      
-      // If another sponsor is approved for the entire proposal, no one else can express interest
+
       return false;
     }
-    
-    // Check if this user was generally rejected for this proposal
-    if (opportunity.rejectedSponsorsNotifications && 
-        opportunity.rejectedSponsorsNotifications.some(
-          notification => notification.sponsorId === user._id && notification.packageIndex === -1
-        )) {
+
+    if (isRejectedForEntireProposal(opportunity)) {
       return false;
     }
-    
-    // If there are no packages, allow general interest
+
     if (!opportunity.packages || opportunity.packages.length === 0) {
       return true;
     }
 
-    // Check status of each package
     for (let i = 0; i < opportunity.packages.length; i++) {
-      // If current user is approved for this package
       if (isApprovedForPackage(opportunity, i)) {
         return false;
       }
-      
-      // If current user's interest was rejected for this package
+
       if (isRejectedForPackage(opportunity, i)) {
         return false;
       }
-      
-      // If this package is already taken by another sponsor
+
       if (isPackageAlreadyTaken(opportunity, i)) {
         return false;
       }
-      
-      // If user has expressed interest but no decision yet
+
       if (hasExpressedInterestInPackage(opportunity._id, i)) {
         return false;
       }
     }
-    
-    // All packages are available for expressing interest
+
     return true;
   };
 
-  // Get package interest button status and text
   const getPackageButtonStatus = (opportunity, packageIndex) => {
-    // If current user is approved for this package
     if (isApprovedForPackage(opportunity, packageIndex)) {
       return {
         className: "btn-success",
@@ -297,8 +411,7 @@ function SponsorDashboard() {
         text: "Approved",
       };
     }
-    
-    // If current user's interest was rejected for this package
+
     if (isRejectedForPackage(opportunity, packageIndex)) {
       return {
         className: "btn-rejected",
@@ -306,8 +419,7 @@ function SponsorDashboard() {
         text: "Rejected",
       };
     }
-    
-    // If this package is already taken by another sponsor
+
     if (isPackageAlreadyTaken(opportunity, packageIndex)) {
       return {
         className: "btn-disabled",
@@ -315,8 +427,7 @@ function SponsorDashboard() {
         text: "This proposal is already taken",
       };
     }
-    
-    // If user has expressed interest but no decision yet
+
     if (hasExpressedInterestInPackage(opportunity._id, packageIndex)) {
       return {
         className: "btn-disabled",
@@ -325,7 +436,6 @@ function SponsorDashboard() {
       };
     }
 
-    // Default: user can express interest
     return {
       className: "btn-approve",
       disabled: false,
@@ -333,8 +443,12 @@ function SponsorDashboard() {
     };
   };
 
+  const handleViewSponsorshipRecords = () => {
+    setActiveTab('sponsorshipRecords');
+    fetchSponsorshipRecords();
+  };
+
   const renderTabContent = () => {
-    // If user is null (during logout), render nothing to prevent errors
     if (!user) {
       return <div>Logging out...</div>;
     }
@@ -352,6 +466,7 @@ function SponsorDashboard() {
               <div className="proposals-list">
                 {opportunities.map((opportunity) => (
                   <div key={opportunity._id} className="proposal-card">
+                    {logRejectionData(opportunity)}
                     <h3>{opportunity.name}</h3>
                     <p>{opportunity.description}</p>
                     <div className="proposal-details">
@@ -370,6 +485,8 @@ function SponsorDashboard() {
                       <button className="btn-view" onClick={() => handleViewDetails(opportunity)}>View Details</button>
                       {isApprovedForEntireProposal(opportunity) ? (
                         <button className="btn-success" disabled>Approved For Entire Proposal</button>
+                      ) : isRejectedForEntireProposal(opportunity) ? (
+                        <button className="btn-rejected" disabled>Rejected For Entire Proposal</button>
                       ) : hasExpressedInterest(opportunity) ? (
                         <button className="btn-disabled" disabled>Interest Expressed</button>
                       ) : !areAllPackagesAvailableForInterest(opportunity) ? (
@@ -380,6 +497,18 @@ function SponsorDashboard() {
                           onClick={() => handleExpressInterest(opportunity._id)}
                         >
                           Express Interest
+                        </button>
+                      )}
+                      {(isApprovedForEntireProposal(opportunity) || 
+                        isRejectedForEntireProposal(opportunity) ||
+                        (opportunity.packages && opportunity.packages.some((_, index) => 
+                          isApprovedForPackage(opportunity, index) || isRejectedForPackage(opportunity, index)
+                        ))) && (
+                        <button 
+                          className="btn-view-records" 
+                          onClick={handleViewSponsorshipRecords}
+                        >
+                          View Sponsorship Records
                         </button>
                       )}
                     </div>
@@ -415,6 +544,58 @@ function SponsorDashboard() {
             )}
           </div>
         );
+      case 'sponsorshipRecords':
+        const acceptedRecords = sponsorshipRecords?.accepted || [];
+        const rejectedRecords = sponsorshipRecords?.rejected || [];
+
+        return (
+          <div className="sponsorship-records-section">
+            <h2>My Sponsorship Records</h2>
+            {loadingRecords ? (
+              <p>Loading records...</p>
+            ) : recordsError ? (
+              <p className="error">{recordsError}</p>
+            ) : (
+              <>
+                <div className="records-subsection">
+                  <h3>Accepted Sponsorships</h3>
+                  {acceptedRecords.length > 0 ? (
+                    <div className="records-list-cards">
+                      {acceptedRecords.map((record) => (
+                        <div key={record._id} className="record-card accepted-card">
+                          <h4>{record.name}</h4>
+                          <p>Date: {new Date(record.date).toLocaleDateString()}</p>
+                          <p>Status: <span className="status-accepted">Accepted</span></p>
+                          <p>Details: {record.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No accepted sponsorships found.</p>
+                  )}
+                </div>
+                <div className="records-subsection">
+                  <h3>Rejected Sponsorships</h3>
+                  {rejectedRecords.length > 0 ? (
+                    <div className="records-list-cards">
+                      {rejectedRecords.map((record) => (
+                        <div key={record._id} className="record-card rejected-card">
+                          <h4>{record.name}</h4>
+                          <p>Date: {new Date(record.date).toLocaleDateString()}</p>
+                          <p>Status: <span className="status-rejected">Rejected</span></p>
+                          <p>Details: {record.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No rejected sponsorships found.</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        );
+
       default:
         return <div>Select an option from the sidebar</div>;
     }
@@ -442,13 +623,17 @@ function SponsorDashboard() {
             >
               <i className="fas fa-bullhorn"></i> Announcements
             </li>
-            {/* More menu items can be added here */}
+            <li
+              className={activeTab === 'sponsorshipRecords' ? 'active' : ''}
+              onClick={() => setActiveTab('sponsorshipRecords')}
+            >
+              <i className="fas fa-history"></i> Sponsorship Records
+            </li>
           </ul>
         </div>
         <div className="main-content">{renderTabContent()}</div>
       </div>
 
-      {/* Event Details Modal - Only render when showModal is true, selectedOpportunity exists, and user exists */}
       {showModal && selectedOpportunity && user && (
         <div className="modal-overlay">
           <div className="event-details-modal">
@@ -491,8 +676,7 @@ function SponsorDashboard() {
                   <p>{selectedOpportunity.status}</p>
                 </div>
               </div>
-              
-              {/* Display registrar allocated funds information if available */}
+
               {selectedOpportunity.sponsorshipRequestApproval?.status === 'approved' && 
                selectedOpportunity.packages && selectedOpportunity.packages.length > 0 && (
                 <div className="funding-allocation-info">
@@ -520,8 +704,7 @@ function SponsorDashboard() {
                   </div>
                 </div>
               )}
-              
-              {/* Display available sponsorship packages */}
+
               {selectedOpportunity.packages && selectedOpportunity.packages.length > 0 ? (
                 <>
                   <h3>Sponsorship Packages</h3>
@@ -535,7 +718,6 @@ function SponsorDashboard() {
                             <strong>Price:</strong>
                             <p>${pkg.price}</p>
                           </div>
-                          {/* Display allocated funds information for this package */}
                           {selectedOpportunity.sponsorshipRequestApproval?.status === 'approved' && pkg.registrarFunds > 0 && (
                             <div className="package-funding-allocation">
                               <div className="package-fund-detail registrar-contribution">
@@ -566,6 +748,16 @@ function SponsorDashboard() {
                           >
                             {text}
                           </button>
+                          
+                          {(isApprovedForPackage(selectedOpportunity, index) || 
+                            isRejectedForPackage(selectedOpportunity, index)) && (
+                            <button 
+                              className="btn-view-records" 
+                              onClick={handleViewSponsorshipRecords}
+                            >
+                              View In Records
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -576,7 +768,7 @@ function SponsorDashboard() {
                   <p>No sponsorship packages are available for this event.</p>
                 </div>
               )}
-              
+
               <div className="modal-actions">
                 <button className="btn-view" onClick={closeModal}>Close</button>
               </div>

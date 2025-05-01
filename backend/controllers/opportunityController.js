@@ -328,6 +328,26 @@ const approveInterest = asyncHandler(async (req, res) => {
                 read: false
             });
         });
+
+        // 9. NEW FEATURE: Reject all general interest requests for this proposal
+        if (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) {
+            console.log(`Found ${opportunity.interestedSponsors.length} general interest requests to reject`);
+            
+            // Add rejection notifications for all sponsors with general interest
+            opportunity.interestedSponsors.forEach(generalInterestSponsorId => {
+                opportunity.rejectedSponsorsNotifications.push({
+                    sponsorId: generalInterestSponsorId,
+                    packageIndex: -1, // -1 indicates general proposal rejection
+                    reason: 'A package in this proposal has been assigned to a sponsor',
+                    rejectedAt: Date.now(),
+                    rejectedBy: req.user.id,
+                    read: false
+                });
+            });
+            
+            // Clear all general interest requests
+            opportunity.interestedSponsors = [];
+        }
     }
 
     await opportunity.save();
@@ -386,6 +406,22 @@ const rejectInterest = asyncHandler(async (req, res) => {
         opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
             id => id.toString() !== sponsorId
         );
+        
+        // ADDED: Also add to rejectedSponsorsNotifications to ensure backward compatibility
+        // and to make sure the rejection shows up properly in the frontend
+        if (!opportunity.rejectedSponsorsNotifications) {
+            opportunity.rejectedSponsorsNotifications = [];
+        }
+        
+        // Add to rejection notifications with packageIndex = -1
+        opportunity.rejectedSponsorsNotifications.push({
+            sponsorId,
+            packageIndex: -1, // -1 indicates general proposal rejection
+            reason: 'Interest request rejected by registrar',
+            rejectedAt: Date.now(),
+            rejectedBy: req.user.id,
+            read: false
+        });
     } else if (hasPackageInterest) {
         // For package-specific interest, we need to:
         // 1. Get the package indices that this sponsor was interested in
@@ -780,6 +816,87 @@ const postponeOpportunity = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get accepted and rejected sponsorship records for the logged-in sponsor
+// @route   GET /api/opportunities/my-records
+// @access  Private (Sponsor only)
+const getSponsorRecords = asyncHandler(async (req, res) => {
+    const sponsorId = req.user.id;
+
+    // Find opportunities where the sponsor was approved (either for a package or the whole proposal)
+    const acceptedOpportunities = await Opportunity.find({
+        $or: [
+            { 'approvedPackageSponsors.sponsorId': sponsorId },
+            { 'sponsorshipContributionApproval.approvedSponsorId': sponsorId }
+        ]
+    }).select('name date status packages approvedPackageSponsors sponsorshipContributionApproval'); // Select relevant fields
+
+    // Find opportunities where the sponsor was rejected (either for a package or the whole proposal)
+    // Include 'packages' in the selection to ensure we have package data for rejected packages
+    const rejectedOpportunities = await Opportunity.find({
+        'rejectedSponsorsNotifications.sponsorId': sponsorId
+    }).select('name date status packages rejectedSponsorsNotifications'); // Added 'packages' to the selection
+
+    // Process accepted records to include package details if applicable
+    const acceptedRecords = acceptedOpportunities.map(opp => {
+        let acceptedDetail = 'General Proposal';
+        if (opp.approvedPackageSponsors && opp.approvedPackageSponsors.length > 0) {
+            const sponsorPackages = opp.approvedPackageSponsors
+                .filter(pkg => pkg.sponsorId.toString() === sponsorId)
+                .map(pkg => {
+                    // Check if packages and the specific package index exist
+                    if (opp.packages && opp.packages[pkg.packageIndex]) {
+                        return opp.packages[pkg.packageIndex].name || `Package ${pkg.packageIndex + 1}`;
+                    }
+                    return `Package ${pkg.packageIndex + 1}`;
+                });
+            if (sponsorPackages.length > 0) {
+                acceptedDetail = `Package(s): ${sponsorPackages.join(', ')}`;
+            }
+        }
+        return {
+            _id: opp._id,
+            name: opp.name,
+            date: opp.date,
+            status: 'Accepted',
+            detail: acceptedDetail
+        };
+    });
+
+    // Process rejected records to include package details and reason if applicable
+    const rejectedRecords = rejectedOpportunities.map(opp => {
+        const rejectionDetails = opp.rejectedSponsorsNotifications
+            .filter(notif => notif.sponsorId.toString() === sponsorId)
+            .map(notif => {
+                let packageName = 'General Proposal';
+                
+                // Only try to access package name if it's not a general proposal rejection
+                if (notif.packageIndex !== -1) {
+                    // Safely check if packages and the specific index exist
+                    if (opp.packages && opp.packages[notif.packageIndex]) {
+                        packageName = opp.packages[notif.packageIndex].name || `Package ${notif.packageIndex + 1}`;
+                    } else {
+                        packageName = `Package ${notif.packageIndex + 1}`;
+                    }
+                }
+                
+                return `${packageName} (Reason: ${notif.reason || 'Not specified'})`;
+            });
+        
+        return {
+            _id: opp._id,
+            name: opp.name,
+            date: opp.date,
+            status: 'Rejected',
+            detail: rejectionDetails.join('; ') || 'Reason not specified'
+        };
+    });
+
+    res.status(200).json({ 
+        accepted: acceptedRecords,
+        rejected: rejectedRecords
+    });
+});
+
 module.exports = {
     getOpportunities,
     getOpportunityById,
@@ -799,5 +916,6 @@ module.exports = {
     createSponsorshipRequest,
     getInterestedPackages,
     publishOpportunity,
-    postponeOpportunity
+    postponeOpportunity,
+    getSponsorRecords
 };
