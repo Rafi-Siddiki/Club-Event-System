@@ -19,14 +19,17 @@ const {
     getInterestedPackages,
     createSponsorshipRequest,
     publishOpportunity,
-    postponeOpportunity
+    postponeOpportunity,
+    getSponsorRecords
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/customMiddleware');
 
-// Add this route before your other opportunity routes
+// Routes with specific paths must come BEFORE routes with path parameters
 router.get('/attending', protect, getAttendingEvents);
 router.get('/interested-packages', protect, getInterestedPackages);
+// Route for sponsors to get their accepted/rejected records - moved here to fix routing issues
+router.get('/my-records', protect, authorizeRoles('sponsor'), getSponsorRecords);
 
 // Routes for opportunities
 router.get('/', protect, getOpportunities);
