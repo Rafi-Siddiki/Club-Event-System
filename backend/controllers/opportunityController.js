@@ -328,6 +328,26 @@ const approveInterest = asyncHandler(async (req, res) => {
                 read: false
             });
         });
+
+        // 9. NEW FEATURE: Reject all general interest requests for this proposal
+        if (opportunity.interestedSponsors && opportunity.interestedSponsors.length > 0) {
+            console.log(`Found ${opportunity.interestedSponsors.length} general interest requests to reject`);
+            
+            // Add rejection notifications for all sponsors with general interest
+            opportunity.interestedSponsors.forEach(generalInterestSponsorId => {
+                opportunity.rejectedSponsorsNotifications.push({
+                    sponsorId: generalInterestSponsorId,
+                    packageIndex: -1, // -1 indicates general proposal rejection
+                    reason: 'A package in this proposal has been assigned to a sponsor',
+                    rejectedAt: Date.now(),
+                    rejectedBy: req.user.id,
+                    read: false
+                });
+            });
+            
+            // Clear all general interest requests
+            opportunity.interestedSponsors = [];
+        }
     }
 
     await opportunity.save();
@@ -386,6 +406,22 @@ const rejectInterest = asyncHandler(async (req, res) => {
         opportunity.interestedSponsors = opportunity.interestedSponsors.filter(
             id => id.toString() !== sponsorId
         );
+        
+        // ADDED: Also add to rejectedSponsorsNotifications to ensure backward compatibility
+        // and to make sure the rejection shows up properly in the frontend
+        if (!opportunity.rejectedSponsorsNotifications) {
+            opportunity.rejectedSponsorsNotifications = [];
+        }
+        
+        // Add to rejection notifications with packageIndex = -1
+        opportunity.rejectedSponsorsNotifications.push({
+            sponsorId,
+            packageIndex: -1, // -1 indicates general proposal rejection
+            reason: 'Interest request rejected by registrar',
+            rejectedAt: Date.now(),
+            rejectedBy: req.user.id,
+            read: false
+        });
     } else if (hasPackageInterest) {
         // For package-specific interest, we need to:
         // 1. Get the package indices that this sponsor was interested in

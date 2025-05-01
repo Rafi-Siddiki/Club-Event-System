@@ -123,6 +123,20 @@ function SponsorDashboard() {
     setSelectedOpportunity(null);
   };
 
+  // Debug function to log rejection data
+  const logRejectionData = (opportunity) => {
+    // Only log for development purposes
+    if (opportunity && opportunity.sponsorshipContributionApproval && 
+        opportunity.sponsorshipContributionApproval.status === 'declined') {
+      console.log("Found declined opportunity:", {
+        opportunityId: opportunity._id,
+        opportunityName: opportunity.name,
+        user: user?._id,
+        rejectedSponsorId: opportunity.sponsorshipContributionApproval.rejectedSponsorId
+      });
+    }
+  };
+
   // Handle expressing interest in a proposal
   const handleExpressInterest = async (opportunityId) => {
     try {
@@ -197,6 +211,46 @@ function SponsorDashboard() {
            opportunity.sponsorshipContributionApproval.approvedSponsorId === user._id;
   };
 
+  // Check if the current sponsor's general interest was rejected for the entire proposal
+  const isRejectedForEntireProposal = (opportunity) => {
+    if (!user || !user._id) return false;
+    
+    // Check if the opportunity's sponsorshipContributionApproval has declined status
+    if (opportunity.sponsorshipContributionApproval && 
+        opportunity.sponsorshipContributionApproval.status === 'declined') {
+      
+      // For safety, check if rejectedSponsorId exists before comparing
+      if (opportunity.sponsorshipContributionApproval.rejectedSponsorId) {
+        try {
+          // Try string comparison (safer approach)
+          const rejectedId = String(opportunity.sponsorshipContributionApproval.rejectedSponsorId);
+          const currentUserId = String(user._id);
+          
+          if (rejectedId === currentUserId) {
+            return true;
+          }
+        } catch (e) {
+          console.error("Error comparing IDs:", e);
+        }
+      }
+    }
+    
+    // Also check rejectedSponsorsNotifications for rejection with packageIndex = -1
+    return opportunity.rejectedSponsorsNotifications && 
+           opportunity.rejectedSponsorsNotifications.some(notification => {
+             if (!notification.sponsorId) return false;
+             
+             try {
+               // Try string comparison
+               return String(notification.sponsorId) === String(user._id) && 
+                      notification.packageIndex === -1;
+             } catch (e) {
+               console.error("Error comparing notification IDs:", e);
+               return false;
+             }
+           });
+  };
+
   // Check if the current user is approved for a specific package
   const isApprovedForPackage = (opportunity, packageIndex) => {
     // If sponsor is approved for entire proposal, they're approved for all packages
@@ -247,11 +301,8 @@ function SponsorDashboard() {
       return false;
     }
     
-    // Check if this user was generally rejected for this proposal
-    if (opportunity.rejectedSponsorsNotifications && 
-        opportunity.rejectedSponsorsNotifications.some(
-          notification => notification.sponsorId === user._id && notification.packageIndex === -1
-        )) {
+    // Check if this user's general interest was rejected for this proposal
+    if (isRejectedForEntireProposal(opportunity)) {
       return false;
     }
     
@@ -352,6 +403,7 @@ function SponsorDashboard() {
               <div className="proposals-list">
                 {opportunities.map((opportunity) => (
                   <div key={opportunity._id} className="proposal-card">
+                    {logRejectionData(opportunity)}
                     <h3>{opportunity.name}</h3>
                     <p>{opportunity.description}</p>
                     <div className="proposal-details">
@@ -370,6 +422,8 @@ function SponsorDashboard() {
                       <button className="btn-view" onClick={() => handleViewDetails(opportunity)}>View Details</button>
                       {isApprovedForEntireProposal(opportunity) ? (
                         <button className="btn-success" disabled>Approved For Entire Proposal</button>
+                      ) : isRejectedForEntireProposal(opportunity) ? (
+                        <button className="btn-rejected" disabled>Rejected For Entire Proposal</button>
                       ) : hasExpressedInterest(opportunity) ? (
                         <button className="btn-disabled" disabled>Interest Expressed</button>
                       ) : !areAllPackagesAvailableForInterest(opportunity) ? (
