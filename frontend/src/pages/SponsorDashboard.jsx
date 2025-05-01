@@ -222,21 +222,8 @@ function SponsorDashboard() {
     setSelectedOpportunity(null);
   };
 
-  // Debug function to log rejection data
   const logRejectionData = (opportunity) => {
     // Only log for development purposes
-    if (opportunity && opportunity.sponsorshipContributionApproval && 
-        opportunity.sponsorshipContributionApproval.status === 'declined') {
-      console.log("Found declined opportunity:", {
-        opportunityId: opportunity._id,
-        opportunityName: opportunity.name,
-        user: user?._id,
-        rejectedSponsorId: opportunity.sponsorshipContributionApproval.rejectedSponsorId
-      });
-    }
-  };
-
-  const logRejectionData = (opportunity) => {
     if (opportunity && opportunity.sponsorshipContributionApproval && 
         opportunity.sponsorshipContributionApproval.status === 'declined') {
       console.log("Found declined opportunity:", {
@@ -345,39 +332,6 @@ function SponsorDashboard() {
              
              try {
                // Try string comparison
-               return String(notification.sponsorId) === String(user._id) && 
-                      notification.packageIndex === -1;
-             } catch (e) {
-               console.error("Error comparing notification IDs:", e);
-               return false;
-             }
-           });
-  };
-
-  const isRejectedForEntireProposal = (opportunity) => {
-    if (!user || !user._id) return false;
-
-    if (opportunity.sponsorshipContributionApproval && 
-        opportunity.sponsorshipContributionApproval.status === 'declined') {
-      if (opportunity.sponsorshipContributionApproval.rejectedSponsorId) {
-        try {
-          const rejectedId = String(opportunity.sponsorshipContributionApproval.rejectedSponsorId);
-          const currentUserId = String(user._id);
-
-          if (rejectedId === currentUserId) {
-            return true;
-          }
-        } catch (e) {
-          console.error("Error comparing IDs:", e);
-        }
-      }
-    }
-
-    return opportunity.rejectedSponsorsNotifications && 
-           opportunity.rejectedSponsorsNotifications.some(notification => {
-             if (!notification.sponsorId) return false;
-
-             try {
                return String(notification.sponsorId) === String(user._id) && 
                       notification.packageIndex === -1;
              } catch (e) {
