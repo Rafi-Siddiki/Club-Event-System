@@ -84,18 +84,35 @@ function UserDashboard() {
     }
   };
 
+  // Modify the fetchAnnouncements function
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/announcements', {
+      // First get the events the user is attending
+      const attendingResponse = await axios.get('/api/opportunities/attending', {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
       });
-      // Log the response to check the data structure
-      console.log('Announcements:', response.data);
+      
+      // Get IDs of events the user is attending
+      const attendingEventIds = attendingResponse.data.map(event => event._id);
+
+      // Get all announcements
+      const announcementsResponse = await axios.get('/api/announcements', {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+
+      // Filter announcements to only include those for events the user is attending
+      const userAnnouncements = announcementsResponse.data.filter(
+        announcement => attendingEventIds.includes(announcement.eventId)
+      );
+
+      // Populate event details for the filtered announcements
       const populatedAnnouncements = await Promise.all(
-        response.data.map(async (announcement) => {
+        userAnnouncements.map(async (announcement) => {
           if (!announcement.eventId?.name) {
             const eventResponse = await axios.get(`/api/opportunities/${announcement.eventId}`, {
               headers: {
@@ -113,6 +130,7 @@ function UserDashboard() {
           return announcement;
         })
       );
+
       setAnnouncements(populatedAnnouncements);
       setLoading(false);
     } catch (err) {
